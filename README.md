@@ -50,6 +50,14 @@ npm run deploy:package
 
 This performs a fresh production build and writes `deployment/arduino-emulator.zip`. Upload the ZIP to the desired web directory and extract it there. Its root contains `index.html` and `assets/`; no Node.js, PHP, or CGI process is needed on the server.
 
+To build and deploy the package to the USNA web server in one step, run:
+
+```bash
+./scripts/deploy-to-usna.sh
+```
+
+The script uploads the ZIP to `mayberry@ssh.cs.usna.edu` and installs it in `~/public_html/arduino_emulator`, published at <https://courses.cs.usna.edu/~mayberry/arduino_emulator/>. It stages the extracted files before replacing the existing deployment, so a build, transfer, or extraction failure leaves the current site intact.
+
 For GitHub Pages, configure Pages to use GitHub Actions, then push to the default branch. The included workflow builds and publishes `dist/`.
 
 ## Architecture
