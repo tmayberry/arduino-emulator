@@ -1,0 +1,185 @@
+import type {
+  HardwareConfig,
+  PinReference,
+  PotentiometerComponentConfig,
+  ToggleSwitchComponentConfig,
+} from "../config/types";
+
+export const INPUT = 0;
+export const OUTPUT = 1;
+export const INPUT_PULLUP = 2;
+export const LOW = 0;
+export const HIGH = 1;
+
+export type NormalizedPin = `D${number}` | `A${number}`;
+
+export interface PinState {
+  mode: number;
+  outputValue: number;
+  outputKind: "digital" | "pwm";
+}
+
+export interface SimulationState {
+  running: boolean;
+  virtualTimeMs: number;
+  pins: Record<string, PinState>;
+  inputs: {
+    potentiometer: number;
+    toggleSwitch: boolean;
+  };
+}
+
+export type SimulationEvent =
+  | { type: "pin-change"; pin: NormalizedPin; value: 0 | 1 }
+  | { type: "pwm-change"; pin: NormalizedPin; value: number }
+  | { type: "time-change"; virtualTimeMs: number };
+
+export function normalizePin(pin: PinReference | number | string): NormalizedPin {
+  if (typeof pin === "number") {
+    if (!Number.isInteger(pin) || pin < 0) {
+      throw new Error(`Invalid pin: ${pin}`);
+    }
+    return pin >= 14 && pin <= 21 ? `A${pin - 14}` : `D${pin}`;
+  }
+
+  const normalized = pin.trim().toUpperCase();
+  if (/^D\d+$/.test(normalized) || /^A\d+$/.test(normalized)) {
+    return normalized as NormalizedPin;
+  }
+  if (/^\d+$/.test(normalized)) {
+    return normalizePin(Number(normalized));
+  }
+  throw new Error(`Invalid pin: ${pin}`);
+}
+
+export function createInitialSimulationState(config: HardwareConfig): SimulationState {
+  const potentiometer = config.components.find(
+    (component): component is PotentiometerComponentConfig =>
+      component.type === "potentiometer",
+  );
+  const toggle = config.components.find(
+    (component): component is ToggleSwitchComponentConfig =>
+      component.type === "toggle-switch",
+  );
+
+  return {
+    running: false,
+    virtualTimeMs: 0,
+    pins: {},
+    inputs: {
+      potentiometer: potentiometer?.defaultValue ?? 0,
+      toggleSwitch: toggle?.defaultPosition === "on",
+    },
+  };
+}
+
+export class SimulationEngine {
+  readonly state: SimulationState;
+
+  constructor(
+    private readonly config: HardwareConfig,
+    initialInputs?: Partial<SimulationState["inputs"]>,
+    private readonly emit: (event: SimulationEvent) => void = () => undefined,
+  ) {
+    this.state = createInitialSimulationState(config);
+    Object.assign(this.state.inputs, initialInputs);
+  }
+
+  private pin(pin: PinReference | number | string): PinState {
+    const id = normalizePin(pin);
+    return (this.state.pins[id] ??= {
+      mode: INPUT,
+      outputValue: LOW,
+      outputKind: "digital",
+    });
+  }
+
+  pinMode(pin: PinReference | number | string, mode: number): void {
+    this.pin(pin).mode = mode;
+  }
+
+  digitalWrite(pin: PinReference | number | string, value: number): void {
+    const id = normalizePin(pin);
+    const next = value === LOW ? LOW : HIGH;
+    const state = this.pin(pin);
+    state.outputValue = next;
+    state.outputKind = "digital";
+    this.emit({ type: "pin-change", pin: id, value: next });
+  }
+
+  analogWrite(pin: PinReference | number | string, value: number): void {
+    const id = normalizePin(pin);
+    const next = Math.max(0, Math.min(255, Math.round(value)));
+    const state = this.pin(pin);
+    state.outputValue = next;
+    state.outputKind = "pwm";
+    this.emit({ type: "pwm-change", pin: id, value: next });
+  }
+
+  digitalRead(pin: PinReference | number | string): number {
+    const id = normalizePin(pin);
+    const toggle = this.config.components.find(
+      (component): component is ToggleSwitchComponentConfig =>
+        component.type === "toggle-switch" && normalizePin(component.pin) === id,
+    );
+    if (toggle) {
+      return this.state.inputs.toggleSwitch ? toggle.onValue : toggle.offValue;
+    }
+
+    const pinState = this.pin(pin);
+    if (pinState.mode === INPUT_PULLUP) return HIGH;
+    if (pinState.mode === OUTPUT) return pinState.outputValue === LOW ? LOW : HIGH;
+    return LOW;
+  }
+
+  analogRead(pin: PinReference | number | string): number {
+    const id = normalizePin(pin);
+    const potentiometer = this.config.components.find(
+      (component): component is PotentiometerComponentConfig =>
+        component.type === "potentiometer" && normalizePin(component.pin) === id,
+    );
+    if (!potentiometer) return 0;
+    return Math.max(
+      potentiometer.min,
+      Math.min(potentiometer.max, Math.round(this.state.inputs.potentiometer)),
+    );
+  }
+
+  setInput(component: "potentiometer" | "toggleSwitch", value: number | boolean): void {
+    if (component === "potentiometer") {
+      const potentiometer = this.config.components.find(
+        (item): item is PotentiometerComponentConfig => item.type === "potentiometer",
+      );
+      const min = potentiometer?.min ?? 0;
+      const max = potentiometer?.max ?? 1023;
+      this.state.inputs.potentiometer = Math.max(
+        min,
+        Math.min(max, Math.round(Number(value))),
+      );
+      return;
+    }
+    this.state.inputs.toggleSwitch = Boolean(value);
+  }
+
+  delay(milliseconds: number): void {
+    this.state.virtualTimeMs += Math.max(0, Math.trunc(milliseconds));
+    this.emit({ type: "time-change", virtualTimeMs: this.state.virtualTimeMs });
+  }
+
+  millis(): number {
+    return this.state.virtualTimeMs;
+  }
+
+  map(
+    value: number,
+    fromLow: number,
+    fromHigh: number,
+    toLow: number,
+    toHigh: number,
+  ): number {
+    if (fromHigh === fromLow) return toLow;
+    return Math.trunc(
+      ((value - fromLow) * (toHigh - toLow)) / (fromHigh - fromLow) + toLow,
+    );
+  }
+}
