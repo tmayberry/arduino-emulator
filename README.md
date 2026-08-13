@@ -17,7 +17,7 @@ A general-purpose, completely client-side Arduino programming emulator for the c
 - Hard-stop worker termination and full hardware reset
 - Student-friendly interpreter error display
 
-The starter sketch uses `TEST_LED_PIN` as an alias for the external green LED on D4. Hardware relationships and placement metadata live in [`src/config/defaultHardware.ts`](src/config/defaultHardware.ts).
+The starter sketch declares `int red = 6` and blinks the external red LED on D6. Hardware relationships and placement metadata live in [`src/config/defaultHardware.ts`](src/config/defaultHardware.ts).
 
 ## Local development
 

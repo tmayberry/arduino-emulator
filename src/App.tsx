@@ -189,7 +189,6 @@ export default function App() {
         <div className="brand">
           <span className="brand-mark"><Zap size={19} fill="currentColor" aria-hidden="true" /></span>
           <div>
-            <span>Intro Engineering</span>
             <h1>Arduino Emulator</h1>
           </div>
         </div>

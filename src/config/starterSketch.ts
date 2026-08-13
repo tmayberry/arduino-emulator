@@ -1,10 +1,12 @@
-export const STARTER_SKETCH = `void setup() {
-  pinMode(TEST_LED_PIN, OUTPUT);
+export const STARTER_SKETCH = `int red = 6;
+
+void setup() {
+  pinMode(red, OUTPUT);
 }
 
 void loop() {
-  digitalWrite(TEST_LED_PIN, HIGH);
+  digitalWrite(red, HIGH);
   delay(1000);
-  digitalWrite(TEST_LED_PIN, LOW);
+  digitalWrite(red, LOW);
   delay(1000);
 }`;
