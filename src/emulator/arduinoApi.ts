@@ -18,6 +18,7 @@ interface JscppRuntime {
   scope: Array<{ variables: Record<string, unknown> }>;
   newClass(name: string, members: unknown[]): unknown;
   normalPointerType(type: unknown): unknown;
+  isPrimitiveType(type: unknown): boolean;
   isTypeEqualTo(left: unknown, right: unknown): boolean;
   isStringType(value: unknown): boolean;
   getStringFromCharArray(value: RuntimeValue): string;
@@ -25,6 +26,7 @@ interface JscppRuntime {
   castable(sourceType: unknown, targetType: unknown): boolean;
   cast(targetType: unknown, value: RuntimeValue): RuntimeValue;
   clone(value: RuntimeValue, isInitializing?: boolean): RuntimeValue;
+  defaultValue(type: unknown, left?: boolean): RuntimeValue;
   regOperator(
     callback: (
       runtime: JscppRuntime,
@@ -57,6 +59,17 @@ export interface ArduinoIncludeModule {
 interface ArduinoStringValue {
   members: {
     __data: RuntimeValue;
+  };
+}
+
+function installGlobalZeroInitialization(rt: JscppRuntime): void {
+  const originalDefaultValue = rt.defaultValue.bind(rt);
+
+  rt.defaultValue = (type, left = false) => {
+    if (rt.scope.length === 1 && rt.isPrimitiveType(type)) {
+      return rt.val(type, 0, left, true);
+    }
+    return originalDefaultValue(type, left);
   };
 }
 
@@ -214,6 +227,7 @@ export function createArduinoInclude(
       const int = rt.intTypeLiteral;
       const long = rt.longTypeLiteral;
       const voidType = rt.voidTypeLiteral;
+      installGlobalZeroInitialization(rt);
       const stringType = installArduinoString(rt);
 
       const numberValue = (value: RuntimeValue): number => Number(value.v);

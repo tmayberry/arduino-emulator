@@ -76,6 +76,52 @@ int main() {
     );
   });
 
+  it("zero-initializes uninitialized global primitives like Arduino C++", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    let output = "";
+    const source = `
+#include "Arduino.h"
+float platform_old, platform_new = 60;
+int global_int;
+bool global_bool;
+int main() {
+  platform_new = platform_old * 4;
+  Serial.println(platform_old);
+  Serial.println(platform_new);
+  Serial.println(global_int);
+  Serial.println(global_bool);
+  return 0;
+}`;
+
+    const result = runRestrictedJscpp(
+      source,
+      createArduinoInclude(engine, () => undefined, (text) => {
+        output += text;
+      }),
+    );
+
+    expect(result).toBe(0);
+    expect(output).toBe("0.00\n0.00\n0\n0\n");
+  });
+
+  it("does not zero-initialize automatic local primitives", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    const source = `
+#include "Arduino.h"
+int main() {
+  float local_value;
+  float result = local_value * 4;
+  return 0;
+}`;
+
+    expect(() =>
+      runRestrictedJscpp(
+        source,
+        createArduinoInclude(engine, () => undefined),
+      ),
+    ).toThrow(/NaN\(float\)/);
+  });
+
   it("runs a blink sequence through the fake Arduino API", () => {
     const transitions: Array<{ event: SimulationEvent; time: number }> = [];
     let engine!: SimulationEngine;
