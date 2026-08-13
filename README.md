@@ -9,6 +9,7 @@ A general-purpose, completely client-side Arduino programming emulator for the c
 - `HIGH`, `LOW`, `INPUT`, `OUTPUT`, `INPUT_PULLUP`, `A0`–`A7`, `TEST_LED_PIN`, and `LED_BUILTIN`
 - `pinMode`, `digitalWrite`, `digitalRead`, `analogRead`, `analogWrite`, `delay`, `millis`, and `map`
 - `Serial.begin`, `Serial.print`, and `Serial.println` with a live, clearable Serial Monitor
+- Arduino-style `String` variables, assignment, concatenation, comparison, `length()`, `charAt()`, and `c_str()`
 - Cooperative, short-slice JSCPP execution in a disposable Web Worker
 - Real-time-paced virtual clock and runaway-loop watchdog
 - Built-in yellow LED (`LED_BUILTIN`) on D13, external green LED on D4, external red LED on D6, A7 potentiometer, and D2 toggle switch

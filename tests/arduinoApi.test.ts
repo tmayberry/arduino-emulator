@@ -34,6 +34,48 @@ int main() {
     expect(output).toBe("value=42 1 3.50\ndone\n");
   });
 
+  it("supports Arduino String variables", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    let output = "";
+    const source = `
+#include "Arduino.h"
+String greeting = "Anchors";
+void announce(String message) {
+  Serial.println(message);
+}
+int main() {
+  String copy = greeting;
+  String status;
+  String count = 42;
+  status = "Ready";
+  greeting += " Aweigh";
+  copy = copy + '!' + 2026;
+  Serial.println(greeting);
+  Serial.println(copy);
+  Serial.println(status);
+  Serial.println(status.c_str());
+  Serial.println(count);
+  announce("Passed as an argument");
+  Serial.println(greeting.length());
+  Serial.println(greeting.charAt(0));
+  Serial.println(greeting == "Anchors Aweigh");
+  return 0;
+}`;
+
+    const result = runRestrictedJscpp(
+      source,
+      createArduinoInclude(engine, () => undefined, (text) => {
+        output += text;
+      }),
+    );
+
+    expect(result).toBe(0);
+    expect(output).toBe(
+      "Anchors Aweigh\nAnchors!2026\nReady\nReady\n42\n" +
+      "Passed as an argument\n14\nA\n1\n",
+    );
+  });
+
   it("runs a blink sequence through the fake Arduino API", () => {
     const transitions: Array<{ event: SimulationEvent; time: number }> = [];
     let engine!: SimulationEngine;
