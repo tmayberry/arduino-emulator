@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
-import { QrCode, Smartphone, Unplug } from "lucide-react";
+import { ChevronDown, QrCode, Smartphone, Unplug } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type { AccelerometerReading } from "../emulator/workerProtocol";
 import { makePhonePairingUrl } from "../phone/pairing";
@@ -148,16 +148,19 @@ export function AccelerometerPanel({
   const connected = peerStatus === "connected";
 
   return (
-    <section className="accelerometer-card" aria-label="Phone accelerometer">
-      <div className="accelerometer-heading">
+    <details className="accelerometer-card">
+      <summary className="accelerometer-heading">
         <div>
           <span className="eyebrow">Motion input</span>
           <h3>Phone Accelerometer</h3>
         </div>
-        <span className={`connection-pill connection-${connected && dataConnected ? "live" : "idle"}`}>
-          {statusLabel(peerStatus, dataConnected)}
+        <span className="collapsible-heading-end">
+          <span className={`connection-pill connection-${connected && dataConnected ? "live" : "idle"}`}>
+            {statusLabel(peerStatus, dataConnected)}
+          </span>
+          <ChevronDown className="collapse-chevron" size={18} aria-hidden="true" />
         </span>
-      </div>
+      </summary>
 
       <AccelerationVector reading={reading} />
 
@@ -212,6 +215,6 @@ export function AccelerometerPanel({
           </section>
         </div>
       )}
-    </section>
+    </details>
   );
 }

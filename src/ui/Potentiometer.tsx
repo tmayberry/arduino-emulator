@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import type { PotentiometerComponentConfig } from "../config/types";
 
 interface PotentiometerProps {
@@ -11,14 +12,18 @@ export function Potentiometer({ component, value, onChange }: PotentiometerProps
   const angle = -135 + percentage * 270;
 
   return (
-    <div className="control-card potentiometer-card">
-      <div className="control-card-heading">
+    <details className="control-card potentiometer-card">
+      <summary className="control-card-heading">
         <div>
           <span className="eyebrow">Analog input</span>
           <h3>{component.label}</h3>
         </div>
-        <span className="pin-chip">{component.pin}</span>
-      </div>
+        <span className="collapsible-heading-end">
+          <span className="input-summary-value">{value}</span>
+          <span className="pin-chip">{component.pin}</span>
+          <ChevronDown className="collapse-chevron" size={17} aria-hidden="true" />
+        </span>
+      </summary>
       <div className="potentiometer-control">
         <div className="pot-knob" aria-hidden="true">
           <span style={{ transform: `rotate(${angle}deg)` }} />
@@ -41,6 +46,6 @@ export function Potentiometer({ component, value, onChange }: PotentiometerProps
         onChange={(event) => onChange(Number(event.currentTarget.value))}
       />
       <div className="range-labels"><span>{component.min}</span><span>{component.max}</span></div>
-    </div>
+    </details>
   );
 }

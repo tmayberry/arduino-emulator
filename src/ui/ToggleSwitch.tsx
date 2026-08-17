@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import type { ToggleSwitchComponentConfig } from "../config/types";
 
 interface ToggleSwitchProps {
@@ -10,14 +11,18 @@ export function ToggleSwitch({ component, checked, onChange }: ToggleSwitchProps
   const digitalValue = checked ? component.onValue : component.offValue;
 
   return (
-    <div className="control-card toggle-card">
-      <div className="control-card-heading">
+    <details className="control-card toggle-card">
+      <summary className="control-card-heading">
         <div>
           <span className="eyebrow">Digital input</span>
           <h3>{component.label}</h3>
         </div>
-        <span className="pin-chip">D{component.pin}</span>
-      </div>
+        <span className="collapsible-heading-end">
+          <span className="input-summary-value">{digitalValue === 1 ? "HIGH" : "LOW"}</span>
+          <span className="pin-chip">D{component.pin}</span>
+          <ChevronDown className="collapse-chevron" size={17} aria-hidden="true" />
+        </span>
+      </summary>
       <div className="toggle-control-row">
         <span className={!checked ? "toggle-label active" : "toggle-label"}>OFF</span>
         <label className="switch-control">
@@ -34,6 +39,6 @@ export function ToggleSwitch({ component, checked, onChange }: ToggleSwitchProps
       <div className="logic-readout">
         Reading <strong>{digitalValue === 1 ? "HIGH" : "LOW"}</strong>
       </div>
-    </div>
+    </details>
   );
 }

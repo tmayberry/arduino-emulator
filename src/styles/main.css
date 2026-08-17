@@ -816,10 +816,54 @@ button:disabled {
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.control-card-heading::-webkit-details-marker,
+.accelerometer-heading::-webkit-details-marker {
+  display: none;
+}
+
+.control-card-heading::marker,
+.accelerometer-heading::marker {
+  content: "";
+}
+
+.control-card-heading:focus-visible,
+.accelerometer-heading:focus-visible {
+  outline: 3px solid rgba(23, 120, 242, 0.28);
+  outline-offset: 5px;
+  border-radius: 5px;
 }
 
 .control-card-heading h3 {
   font-size: 0.87rem;
+}
+
+.collapsible-heading-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.input-summary-value {
+  color: #68748a;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.collapse-chevron {
+  flex: 0 0 auto;
+  color: #7b8598;
+  transition: transform 160ms ease;
+}
+
+details[open] > summary .collapse-chevron {
+  transform: rotate(180deg);
 }
 
 .potentiometer-control {
@@ -993,6 +1037,14 @@ button:disabled {
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid #e2e6ee;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.accelerometer-card:not([open]) .accelerometer-heading {
+  padding-bottom: 15px;
+  border-bottom: 0;
 }
 
 .accelerometer-heading h3 {
@@ -1404,8 +1456,7 @@ button:disabled {
   }
 
   .accelerometer-heading {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
   }
 
   .vector-canvas {
