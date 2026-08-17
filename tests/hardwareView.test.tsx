@@ -15,8 +15,11 @@ describe("HardwareView", () => {
         }}
         potentiometer={512}
         toggleSwitch={false}
+        accelerometer={{ x: 0, y: 0, z: 1 }}
+        accelerometerConnected={false}
         onPotentiometerChange={() => undefined}
         onToggleChange={() => undefined}
+        onAccelerometerChange={() => undefined}
         onReset={() => undefined}
       />,
     );
@@ -34,8 +37,11 @@ describe("HardwareView", () => {
         pinOutputs={{}}
         potentiometer={512}
         toggleSwitch={false}
+        accelerometer={{ x: 0, y: 0, z: 1 }}
+        accelerometerConnected={false}
         onPotentiometerChange={() => undefined}
         onToggleChange={() => undefined}
+        onAccelerometerChange={() => undefined}
         onReset={onReset}
       />,
     );

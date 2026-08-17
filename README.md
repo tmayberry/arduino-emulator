@@ -1,6 +1,6 @@
 # Arduino Emulator
 
-A general-purpose, completely client-side Arduino programming emulator for the configured Arduino Nano 33 BLE hardware. Sketches run in a Web Worker through JSCPP and interact with a config-driven simulation API—there is no CPU emulation, API server, or remote compilation service.
+A general-purpose, completely client-side Arduino programming emulator for the configured Arduino Nano 33 BLE Sense Rev2 hardware. Sketches run in a Web Worker through JSCPP and interact with a config-driven simulation API—there is no CPU emulation, API server, or remote compilation service.
 
 ## Version 1 features
 
@@ -13,6 +13,9 @@ A general-purpose, completely client-side Arduino programming emulator for the c
 - Cooperative, short-slice JSCPP execution in a disposable Web Worker
 - Real-time-paced virtual clock and runaway-loop watchdog
 - Built-in yellow LED (`LED_BUILTIN`) on D13, external green LED on D4, external red LED on D6, A7 potentiometer, and D2 toggle switch
+- Arduino BMI270 accelerometer compatibility with `IMU.begin()`, `IMU.accelerationAvailable()`, and `IMU.readAcceleration(x, y, z)`
+- Direct phone accelerometer input over WebRTC using serverless two-QR pairing
+- Live interactive 3D acceleration vector, magnitude, and Lab 2 ±1.5 g threshold guides
 - Clickable onboard reset button that stops the sketch and restores default hardware state
 - Hard-stop worker termination and full hardware reset
 - Student-friendly interpreter error display
@@ -60,6 +63,12 @@ To build and deploy the package to the USNA web server in one step, run:
 The script uploads the ZIP to `mayberry@ssh.cs.usna.edu` and installs it in `~/public_html/arduino_emulator`, published at <https://courses.cs.usna.edu/~mayberry/arduino_emulator/>. It stages the extracted files before replacing the existing deployment, so a build, transfer, or extraction failure leaves the current site intact.
 
 For GitHub Pages, configure Pages to use GitHub Actions, then push to the default branch. The included workflow builds and publishes `dist/`.
+
+### Phone accelerometer pairing
+
+The phone and laptop both open the HTTPS deployment. Click **Connect phone** on the laptop, scan its QR code with the phone camera, and allow motion access. The phone then displays an answer QR code for the laptop webcam to scan.
+
+The initial WebRTC configuration intentionally has no STUN or TURN servers. It therefore tests direct connectivity on the local Wi-Fi network and does not send sensor data through a relay. Networks that isolate wireless clients may prevent pairing; connect the laptop to a phone hotspot as a fallback. ICE servers can later be added in `src/phone/webrtc.ts` without changing the emulator or phone sensor protocol.
 
 ## Architecture
 

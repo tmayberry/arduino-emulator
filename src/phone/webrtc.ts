@@ -1,0 +1,181 @@
+import type { AccelerometerReading } from "../emulator/workerProtocol";
+import { decodePairingDescription, encodePairingDescription } from "./pairing";
+
+export const ICE_CONFIGURATION: RTCConfiguration = { iceServers: [] };
+const ICE_GATHERING_TIMEOUT_MS = 10_000;
+const CONNECTION_TIMEOUT_MS = 20_000;
+
+export type PeerStatus =
+  | "idle"
+  | "gathering"
+  | "waiting"
+  | "connecting"
+  | "connected"
+  | "failed"
+  | "closed";
+
+interface SensorPacket extends AccelerometerReading {
+  version: 1;
+  type: "acceleration";
+  sequence: number;
+  timestampMs: number;
+}
+
+function waitForIceGathering(peer: RTCPeerConnection): Promise<void> {
+  if (peer.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Timed out while gathering network connection details."));
+    }, ICE_GATHERING_TIMEOUT_MS);
+    const handleState = () => {
+      if (peer.iceGatheringState === "complete") {
+        cleanup();
+        resolve();
+      }
+    };
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      peer.removeEventListener("icegatheringstatechange", handleState);
+    };
+    peer.addEventListener("icegatheringstatechange", handleState);
+  });
+}
+
+function isSensorPacket(value: unknown): value is SensorPacket {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "version" in value &&
+      value.version === 1 &&
+      "type" in value &&
+      value.type === "acceleration" &&
+      "x" in value && Number.isFinite(Number(value.x)) &&
+      "y" in value && Number.isFinite(Number(value.y)) &&
+      "z" in value && Number.isFinite(Number(value.z)) &&
+      "sequence" in value && Number.isInteger(Number(value.sequence)) &&
+      "timestampMs" in value && Number.isFinite(Number(value.timestampMs)),
+  );
+}
+
+abstract class AccelerometerPeer {
+  protected readonly peer = new RTCPeerConnection(ICE_CONFIGURATION);
+  private connectionTimer: number | undefined;
+
+  constructor(protected readonly onStatus: (status: PeerStatus) => void) {
+    this.peer.addEventListener("connectionstatechange", () => {
+      const state = this.peer.connectionState;
+      if (state === "connected") {
+        this.clearConnectionTimer();
+        this.onStatus("connected");
+      } else if (state === "failed" || state === "disconnected") {
+        this.clearConnectionTimer();
+        this.onStatus("failed");
+      } else if (state === "closed") {
+        this.clearConnectionTimer();
+        this.onStatus("closed");
+      }
+    });
+  }
+
+  protected startConnectionTimer(): void {
+    this.clearConnectionTimer();
+    this.connectionTimer = window.setTimeout(() => {
+      if (this.peer.connectionState !== "connected") {
+        this.onStatus("failed");
+        this.peer.close();
+      }
+    }, CONNECTION_TIMEOUT_MS);
+  }
+
+  private clearConnectionTimer(): void {
+    if (this.connectionTimer !== undefined) {
+      window.clearTimeout(this.connectionTimer);
+      this.connectionTimer = undefined;
+    }
+  }
+
+  close(): void {
+    this.clearConnectionTimer();
+    this.peer.close();
+    this.onStatus("closed");
+  }
+}
+
+export class DesktopAccelerometerPeer extends AccelerometerPeer {
+  private readonly channel: RTCDataChannel;
+
+  constructor(
+    onStatus: (status: PeerStatus) => void,
+    onReading: (reading: AccelerometerReading, receivedAtMs: number) => void,
+  ) {
+    super(onStatus);
+    this.channel = this.peer.createDataChannel("accelerometer-v1", {
+      ordered: false,
+      maxRetransmits: 0,
+    });
+    this.channel.addEventListener("message", (event) => {
+      try {
+        const packet: unknown = JSON.parse(String(event.data));
+        if (isSensorPacket(packet)) {
+          onReading({ x: Number(packet.x), y: Number(packet.y), z: Number(packet.z) }, Date.now());
+        }
+      } catch {
+        // Ignore malformed peer messages.
+      }
+    });
+  }
+
+  async createOffer(): Promise<string> {
+    this.onStatus("gathering");
+    await this.peer.setLocalDescription(await this.peer.createOffer());
+    await waitForIceGathering(this.peer);
+    if (!this.peer.localDescription) throw new Error("Could not create a pairing offer.");
+    this.onStatus("waiting");
+    return encodePairingDescription("offer", this.peer.localDescription);
+  }
+
+  async acceptAnswer(answerToken: string): Promise<void> {
+    this.onStatus("connecting");
+    await this.peer.setRemoteDescription(
+      decodePairingDescription(answerToken, "answer"),
+    );
+    this.startConnectionTimer();
+  }
+}
+
+export class PhoneAccelerometerPeer extends AccelerometerPeer {
+  private channel: RTCDataChannel | null = null;
+  private sequence = 0;
+
+  constructor(onStatus: (status: PeerStatus) => void) {
+    super(onStatus);
+    this.peer.addEventListener("datachannel", (event) => {
+      this.channel = event.channel;
+    });
+  }
+
+  async createAnswer(offerToken: string): Promise<string> {
+    this.onStatus("gathering");
+    await this.peer.setRemoteDescription(
+      decodePairingDescription(offerToken, "offer"),
+    );
+    await this.peer.setLocalDescription(await this.peer.createAnswer());
+    await waitForIceGathering(this.peer);
+    if (!this.peer.localDescription) throw new Error("Could not create a pairing answer.");
+    this.onStatus("waiting");
+    this.startConnectionTimer();
+    return encodePairingDescription("answer", this.peer.localDescription);
+  }
+
+  send(reading: AccelerometerReading, timestampMs: number): void {
+    if (!this.channel || this.channel.readyState !== "open") return;
+    this.channel.send(JSON.stringify({
+      version: 1,
+      type: "acceleration",
+      sequence: this.sequence++,
+      timestampMs,
+      ...reading,
+    } satisfies SensorPacket));
+  }
+}

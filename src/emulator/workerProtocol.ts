@@ -1,6 +1,18 @@
+export interface AccelerometerReading {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface AccelerometerInput extends AccelerometerReading {
+  connected: boolean;
+  updatedAtMs: number;
+}
+
 export interface WorkerInputs {
   potentiometer: number;
   toggleSwitch: boolean;
+  accelerometer: AccelerometerInput;
 }
 
 export type UiToWorkerMessage =
@@ -9,6 +21,12 @@ export type UiToWorkerMessage =
       type: "input-change";
       component: "potentiometer" | "toggleSwitch";
       value: number | boolean;
+    }
+  | {
+      type: "accelerometer-change";
+      reading: AccelerometerReading;
+      connected: boolean;
+      updatedAtMs: number;
     }
   | { type: "stop" }
   | { type: "reset" };

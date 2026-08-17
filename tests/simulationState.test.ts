@@ -77,4 +77,19 @@ describe("SimulationEngine", () => {
     expect(engine.millis()).toBe(1000);
     expect(engine.map(512, 0, 1023, 0, 255)).toBe(127);
   });
+
+  it("returns live accelerometer readings and falls back to neutral when stale", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    engine.setAccelerometer({ x: 1.7, y: -2.2, z: 0.4 }, true, 10_000);
+    expect(engine.accelerationAvailable()).toBe(1);
+    expect(engine.readAcceleration(10_500)).toEqual({ x: 1.7, y: -2.2, z: 0.4 });
+    expect(engine.accelerationAvailable()).toBe(0);
+    expect(engine.readAcceleration(11_001)).toEqual({ x: 0, y: 0, z: 1 });
+  });
+
+  it("clamps accelerometer inputs to the Nano range", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    engine.setAccelerometer({ x: 7, y: -8, z: 2 }, true, 20_000);
+    expect(engine.readAcceleration(20_000)).toEqual({ x: 4, y: -4, z: 2 });
+  });
 });

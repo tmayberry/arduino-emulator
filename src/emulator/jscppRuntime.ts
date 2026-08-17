@@ -15,6 +15,7 @@ export function runRestrictedJscpp(
   source: string,
   arduinoInclude: ArduinoIncludeModule,
   options: RestrictedJscppOptions = {},
+  additionalIncludes: Record<string, ArduinoIncludeModule> = {},
 ): unknown {
   const run = JSCPP.run as unknown as (
     this: { includes: Record<string, ArduinoIncludeModule> },
@@ -24,7 +25,7 @@ export function runRestrictedJscpp(
   ) => unknown;
 
   return run.call(
-    { includes: { "Arduino.h": arduinoInclude } },
+    { includes: { "Arduino.h": arduinoInclude, ...additionalIncludes } },
     source,
     "",
     {

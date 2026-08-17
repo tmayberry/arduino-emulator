@@ -4,6 +4,10 @@ import type {
   PotentiometerComponentConfig,
   ToggleSwitchComponentConfig,
 } from "../config/types";
+import type {
+  AccelerometerInput,
+  AccelerometerReading,
+} from "./workerProtocol";
 
 export const INPUT = 0;
 export const OUTPUT = 1;
@@ -26,8 +30,12 @@ export interface SimulationState {
   inputs: {
     potentiometer: number;
     toggleSwitch: boolean;
+    accelerometer: AccelerometerInput;
   };
 }
+
+export const NEUTRAL_ACCELERATION: AccelerometerReading = { x: 0, y: 0, z: 1 };
+export const ACCELEROMETER_STALE_MS = 1_000;
 
 export type SimulationEvent =
   | { type: "pin-change"; pin: NormalizedPin; value: 0 | 1 }
@@ -69,12 +77,19 @@ export function createInitialSimulationState(config: HardwareConfig): Simulation
     inputs: {
       potentiometer: potentiometer?.defaultValue ?? 0,
       toggleSwitch: toggle?.defaultPosition === "on",
+      accelerometer: {
+        ...NEUTRAL_ACCELERATION,
+        connected: false,
+        updatedAtMs: 0,
+      },
     },
   };
 }
 
 export class SimulationEngine {
   readonly state: SimulationState;
+  private accelerometerVersion = 1;
+  private accelerometerReadVersion = 0;
 
   constructor(
     private readonly config: HardwareConfig,
@@ -159,6 +174,42 @@ export class SimulationEngine {
       return;
     }
     this.state.inputs.toggleSwitch = Boolean(value);
+  }
+
+  setAccelerometer(
+    reading: AccelerometerReading,
+    connected: boolean,
+    updatedAtMs: number,
+  ): void {
+    const clamp = (value: number, fallback: number) => {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return fallback;
+      return Math.max(-4, Math.min(4, numeric));
+    };
+    this.state.inputs.accelerometer = {
+      x: clamp(reading.x, 0),
+      y: clamp(reading.y, 0),
+      z: clamp(reading.z, 1),
+      connected,
+      updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
+    };
+    this.accelerometerVersion += 1;
+  }
+
+  accelerationAvailable(): number {
+    return this.accelerometerVersion > this.accelerometerReadVersion ? 1 : 0;
+  }
+
+  readAcceleration(nowMs = Date.now()): AccelerometerReading {
+    this.accelerometerReadVersion = this.accelerometerVersion;
+    const acceleration = this.state.inputs.accelerometer;
+    if (
+      !acceleration.connected ||
+      nowMs - acceleration.updatedAtMs > ACCELEROMETER_STALE_MS
+    ) {
+      return { ...NEUTRAL_ACCELERATION };
+    }
+    return { x: acceleration.x, y: acceleration.y, z: acceleration.z };
   }
 
   delay(milliseconds: number): void {

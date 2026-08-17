@@ -8,7 +8,7 @@ export const hardwareConfig = {
   name: "Default Hardware",
   board: {
     type: "arduino-nano-33-ble",
-    label: "Arduino Nano 33 BLE",
+    label: "Arduino Nano 33 BLE Sense Rev2",
   },
   testLedPin: TEST_LED_PIN,
   builtInLedPin: 13,

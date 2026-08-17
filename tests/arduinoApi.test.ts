@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hardwareConfig, TEST_LED_PIN } from "../src/config/defaultHardware";
-import { createArduinoInclude } from "../src/emulator/arduinoApi";
+import { createArduinoInclude, createImuInclude } from "../src/emulator/arduinoApi";
 import { runRestrictedJscpp } from "../src/emulator/jscppRuntime";
 import { SimulationEngine, type SimulationEvent } from "../src/emulator/simulationState";
 
@@ -180,5 +180,31 @@ int main() {
         createArduinoInclude(engine, () => undefined),
       ),
     ).toThrow(/cannot find library: iostream/);
+  });
+
+  it("supports the Lab 2 BMI270 accelerometer API", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    engine.setAccelerometer({ x: 1.25, y: -2.5, z: 0.75 }, true, Date.now());
+    const source = `
+#include "Arduino.h"
+#include "Arduino_BMI270_BMM150.h"
+float x, y, z;
+int main() {
+  if (!IMU.begin()) return -1;
+  if (!IMU.accelerationAvailable()) return -2;
+  IMU.readAcceleration(x, y, z);
+  return (int)(x * 100 + y * 10 + z);
+}`;
+
+    const result = runRestrictedJscpp(
+      source,
+      createArduinoInclude(engine, () => undefined),
+      {},
+      {
+        "Arduino_BMI270_BMM150.h": createImuInclude(engine, () => undefined),
+      },
+    );
+    expect(result).toBe(100);
+    expect(engine.accelerationAvailable()).toBe(0);
   });
 });

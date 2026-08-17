@@ -7,6 +7,8 @@ import type {
   ToggleSwitchComponentConfig,
 } from "../config/types";
 import { normalizePin } from "../emulator/simulationState";
+import type { AccelerometerReading } from "../emulator/workerProtocol";
+import { AccelerometerPanel } from "./AccelerometerPanel";
 import { Led } from "./Led";
 import { Potentiometer } from "./Potentiometer";
 import { ToggleSwitch } from "./ToggleSwitch";
@@ -21,8 +23,15 @@ interface HardwareViewProps {
   pinOutputs: Record<string, PinOutput>;
   potentiometer: number;
   toggleSwitch: boolean;
+  accelerometer: AccelerometerReading;
+  accelerometerConnected: boolean;
   onPotentiometerChange(value: number): void;
   onToggleChange(value: boolean): void;
+  onAccelerometerChange(
+    reading: AccelerometerReading,
+    connected: boolean,
+    updatedAtMs: number,
+  ): void;
   onReset(): void;
 }
 
@@ -41,8 +50,11 @@ export function HardwareView({
   pinOutputs,
   potentiometer,
   toggleSwitch,
+  accelerometer,
+  accelerometerConnected,
   onPotentiometerChange,
   onToggleChange,
+  onAccelerometerChange,
   onReset,
 }: HardwareViewProps) {
   const leds = config.components.filter(
@@ -148,6 +160,11 @@ export function HardwareView({
           />
         )}
       </div>
+      <AccelerometerPanel
+        reading={accelerometer}
+        dataConnected={accelerometerConnected}
+        onInput={onAccelerometerChange}
+      />
     </section>
   );
 }

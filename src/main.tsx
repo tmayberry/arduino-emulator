@@ -1,15 +1,19 @@
-import { StrictMode } from "react";
+import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import App from "./App";
+import { getPhoneOfferToken } from "./phone/pairing";
 import "./styles/main.css";
 
-self.MonacoEnvironment = {
-  getWorker: () => new EditorWorker(),
-};
+const DesktopApp = lazy(() => import("./DesktopApp"));
+const PhoneRemote = lazy(() =>
+  import("./ui/PhoneRemote").then((module) => ({ default: module.PhoneRemote })),
+);
+
+const phoneOfferToken = getPhoneOfferToken();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <Suspense fallback={<div className="app-loading">Loading Arduino Emulator…</div>}>
+      {phoneOfferToken ? <PhoneRemote offerToken={phoneOfferToken} /> : <DesktopApp />}
+    </Suspense>
   </StrictMode>,
 );

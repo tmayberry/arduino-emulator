@@ -325,3 +325,41 @@ export function createArduinoInclude(
     },
   };
 }
+
+export function createImuInclude(
+  engine: SimulationEngine,
+  onHardwareActivity: () => void,
+): ArduinoIncludeModule {
+  return {
+    load(rt) {
+      const int = rt.intTypeLiteral;
+      const float = rt.floatTypeLiteral;
+      const imuType = rt.newClass("BoschSensorClass", []);
+
+      rt.scope[0].variables.IMU = {
+        t: imuType,
+        v: { members: {} },
+        left: false,
+      };
+
+      rt.regFunc((runtime) => {
+        onHardwareActivity();
+        return runtime.val(int, 1);
+      }, imuType, "begin", [], int);
+
+      rt.regFunc((runtime) => {
+        onHardwareActivity();
+        return runtime.val(int, engine.accelerationAvailable());
+      }, imuType, "accelerationAvailable", [], int);
+
+      rt.regFunc((runtime, _this, x, y, z) => {
+        const reading = engine.readAcceleration();
+        x.v = reading.x;
+        y.v = reading.y;
+        z.v = reading.z;
+        onHardwareActivity();
+        return runtime.val(int, 1);
+      }, imuType, "readAcceleration", [float, float, float], int);
+    },
+  };
+}

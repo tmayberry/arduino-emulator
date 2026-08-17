@@ -4,6 +4,7 @@ import { hardwareConfig } from "./config/defaultHardware";
 import { STARTER_SKETCH } from "./config/starterSketch";
 import { createInitialSimulationState } from "./emulator/simulationState";
 import type {
+  AccelerometerReading,
   UiToWorkerMessage,
   WorkerToUiMessage,
 } from "./emulator/workerProtocol";
@@ -46,6 +47,13 @@ export default function App() {
   const [toggleSwitch, setToggleSwitch] = useState(
     initialState.current.inputs.toggleSwitch,
   );
+  const [accelerometer, setAccelerometer] = useState<AccelerometerReading>({
+    x: initialState.current.inputs.accelerometer.x,
+    y: initialState.current.inputs.accelerometer.y,
+    z: initialState.current.inputs.accelerometer.z,
+  });
+  const [accelerometerConnected, setAccelerometerConnected] = useState(false);
+  const accelerometerUpdatedAtRef = useRef(0);
   const workerRef = useRef<Worker | null>(null);
   const runtimeErrorRef = useRef(false);
 
@@ -134,10 +142,18 @@ export default function App() {
     const message: UiToWorkerMessage = {
       type: "start",
       source,
-      inputs: { potentiometer, toggleSwitch },
+      inputs: {
+        potentiometer,
+        toggleSwitch,
+        accelerometer: {
+          ...accelerometer,
+          connected: accelerometerConnected,
+          updatedAtMs: accelerometerUpdatedAtRef.current,
+        },
+      },
     };
     worker.postMessage(message);
-  }, [handleWorkerMessage, potentiometer, source, terminateWorker, toggleSwitch]);
+  }, [accelerometer, accelerometerConnected, handleWorkerMessage, potentiometer, source, terminateWorker, toggleSwitch]);
 
   const stop = useCallback(() => {
     terminateWorker();
@@ -174,6 +190,22 @@ export default function App() {
     setToggleSwitch(value);
     sendInput({ type: "input-change", component: "toggleSwitch", value });
   };
+
+  const changeAccelerometer = useCallback((
+    reading: AccelerometerReading,
+    connected: boolean,
+    updatedAtMs: number,
+  ) => {
+    setAccelerometer(reading);
+    setAccelerometerConnected(connected);
+    accelerometerUpdatedAtRef.current = updatedAtMs;
+    sendInput({
+      type: "accelerometer-change",
+      reading,
+      connected,
+      updatedAtMs,
+    });
+  }, [sendInput]);
 
   const restoreStarter = () => {
     if (source === STARTER_SKETCH || window.confirm("Replace the editor contents with the starter sketch?")) {
@@ -224,8 +256,11 @@ export default function App() {
           pinOutputs={pinOutputs}
           potentiometer={potentiometer}
           toggleSwitch={toggleSwitch}
+          accelerometer={accelerometer}
+          accelerometerConnected={accelerometerConnected}
           onPotentiometerChange={changePotentiometer}
           onToggleChange={changeToggle}
+          onAccelerometerChange={changeAccelerometer}
           onReset={reset}
         />
       </div>

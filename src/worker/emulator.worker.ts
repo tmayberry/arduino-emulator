@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import { hardwareConfig } from "../config/defaultHardware";
-import { createArduinoInclude } from "../emulator/arduinoApi";
+import { createArduinoInclude, createImuInclude } from "../emulator/arduinoApi";
 import { normalizeDiagnosticMessage } from "../emulator/errorFormatting";
 import { runRestrictedJscpp } from "../emulator/jscppRuntime";
 import {
@@ -13,6 +13,7 @@ import {
 import { SimulationEngine } from "../emulator/simulationState";
 import { toStudentLine, wrapArduinoSource } from "../emulator/sourceWrapper";
 import type {
+  WorkerInputs,
   UiToWorkerMessage,
   WorkerToUiMessage,
 } from "../emulator/workerProtocol";
@@ -167,7 +168,7 @@ function runSlice(runId: number): void {
   }
 }
 
-function start(source: string, inputs: { potentiometer: number; toggleSwitch: boolean }): void {
+function start(source: string, inputs: WorkerInputs): void {
   clearScheduledSlice();
   currentRun += 1;
   const runId = currentRun;
@@ -190,7 +191,15 @@ function start(source: string, inputs: { potentiometer: number; toggleSwitch: bo
       },
       queueSerialOutput,
     );
-    const result = runRestrictedJscpp(wrapped.code, arduinoInclude, { debug: true });
+    const imuInclude = createImuInclude(engine, () => {
+      activityVersion += 1;
+    });
+    const result = runRestrictedJscpp(
+      wrapped.code,
+      arduinoInclude,
+      { debug: true },
+      { "Arduino_BMI270_BMM150.h": imuInclude },
+    );
     interpreter = result as DebuggerInstance;
     wallStartTime = performance.now();
     post({ type: "running" });
@@ -215,6 +224,13 @@ workerScope.onmessage = (event: MessageEvent<UiToWorkerMessage>) => {
       break;
     case "input-change":
       engine?.setInput(message.component, message.value);
+      break;
+    case "accelerometer-change":
+      engine?.setAccelerometer(
+        message.reading,
+        message.connected,
+        message.updatedAtMs,
+      );
       break;
     case "stop":
       currentRun += 1;
