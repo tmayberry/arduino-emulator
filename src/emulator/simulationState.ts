@@ -90,6 +90,16 @@ export class SimulationEngine {
   readonly state: SimulationState;
   private accelerometerVersion = 1;
   private accelerometerReadVersion = 0;
+  private serialInput: number[] = [];
+  private serialReadIndex = 0;
+  private randomState = SimulationEngine.initialRandomSeed();
+
+  private static initialRandomSeed(): number {
+    const randomValues = new Uint32Array(1);
+    globalThis.crypto?.getRandomValues(randomValues);
+    const seed = randomValues[0] || Math.floor(Math.random() * 0x1_0000_0000);
+    return seed || 0x6d2b79f5;
+  }
 
   constructor(
     private readonly config: HardwareConfig,
@@ -212,6 +222,62 @@ export class SimulationEngine {
     return { x: acceleration.x, y: acceleration.y, z: acceleration.z };
   }
 
+  enqueueSerialInput(text: string): void {
+    this.serialInput.push(...new TextEncoder().encode(text));
+  }
+
+  serialAvailable(): number {
+    return this.serialInput.length - this.serialReadIndex;
+  }
+
+  serialPeek(): number {
+    return this.serialAvailable() > 0 ? this.serialInput[this.serialReadIndex] : -1;
+  }
+
+  serialRead(): number {
+    if (this.serialAvailable() === 0) return -1;
+    const value = this.serialInput[this.serialReadIndex];
+    this.serialReadIndex += 1;
+
+    if (
+      this.serialReadIndex >= 1_024 &&
+      this.serialReadIndex * 2 >= this.serialInput.length
+    ) {
+      this.serialInput = this.serialInput.slice(this.serialReadIndex);
+      this.serialReadIndex = 0;
+    }
+    return value;
+  }
+
+  randomSeed(seed: number): void {
+    const normalized = Math.trunc(seed) >>> 0;
+    if (normalized !== 0) this.randomState = normalized;
+  }
+
+  private nextRandom(): number {
+    let value = this.randomState;
+    value ^= value << 13;
+    value ^= value >>> 17;
+    value ^= value << 5;
+    this.randomState = value >>> 0;
+    return this.randomState;
+  }
+
+  random(maximum: number): number;
+  random(minimum: number, maximum: number): number;
+  random(first: number, second?: number): number {
+    if (second === undefined) {
+      const maximum = Math.trunc(first);
+      if (maximum <= 0) return 0;
+      return this.nextRandom() % maximum;
+    }
+
+    const minimum = Math.trunc(first);
+    const maximum = Math.trunc(second);
+    if (minimum >= maximum) return minimum;
+    return minimum + (this.nextRandom() % (maximum - minimum));
+  }
+
   delay(milliseconds: number): void {
     this.state.virtualTimeMs += Math.max(0, Math.trunc(milliseconds));
     this.emit({ type: "time-change", virtualTimeMs: this.state.virtualTimeMs });
@@ -219,6 +285,10 @@ export class SimulationEngine {
 
   millis(): number {
     return this.state.virtualTimeMs;
+  }
+
+  micros(): number {
+    return this.state.virtualTimeMs * 1_000;
   }
 
   map(

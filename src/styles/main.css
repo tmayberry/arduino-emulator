@@ -261,6 +261,43 @@ button:disabled {
   font-style: italic;
 }
 
+.serial-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  padding: 9px 10px;
+  border-top: 1px solid #28344a;
+  background: #172033;
+}
+
+.serial-input input,
+.serial-input select,
+.serial-input button {
+  min-width: 0;
+  padding: 7px 9px;
+  color: #d7e0ef;
+  background: #111827;
+  border: 1px solid #34425b;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.7rem;
+}
+
+.serial-input button {
+  color: #10231c;
+  background: #65e0ae;
+  border-color: #65e0ae;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.serial-input input:disabled,
+.serial-input select:disabled,
+.serial-input button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .code-panel {
   display: flex;
   min-height: 0;

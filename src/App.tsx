@@ -249,7 +249,12 @@ export default function App() {
             line={errorLine}
             virtualTimeMs={virtualTimeMs}
           />
-          <SerialMonitor output={serialOutput} onClear={() => setSerialOutput("")} />
+          <SerialMonitor
+            output={serialOutput}
+            inputEnabled={isActive}
+            onClear={() => setSerialOutput("")}
+            onSend={(text) => sendInput({ type: "serial-input", text })}
+          />
         </div>
         <HardwareView
           config={hardwareConfig}

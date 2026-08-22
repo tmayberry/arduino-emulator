@@ -7,8 +7,9 @@ A general-purpose, completely client-side Arduino programming emulator for the c
 - Monaco C++ editor with versioned `localStorage` persistence
 - `setup()` / `loop()` Arduino source wrapper
 - `HIGH`, `LOW`, `INPUT`, `OUTPUT`, `INPUT_PULLUP`, `A0`–`A7`, `TEST_LED_PIN`, and `LED_BUILTIN`
-- `pinMode`, `digitalWrite`, `digitalRead`, `analogRead`, `analogWrite`, `delay`, `millis`, and `map`
-- `Serial.begin`, `Serial.print`, and `Serial.println` with a live, clearable Serial Monitor
+- `pinMode`, `digitalWrite`, `digitalRead`, `analogRead`, `analogWrite`, `delay`, `millis`, `micros`, `map`, `min`, `max`, `constrain`, `random`, and `randomSeed`
+- `Serial.begin`, `Serial.print`, `Serial.println`, `Serial.available`, `Serial.read`, `Serial.peek`, `Serial.parseInt`, `Serial.parseFloat`, `Serial.readString`, `Serial.readStringUntil`, and `Serial.setTimeout`
+- Live, clearable Serial Monitor with an Arduino IDE-style input sender and selectable line endings
 - Arduino-style `String` variables, assignment, concatenation, comparison, `length()`, `charAt()`, and `c_str()`
 - Cooperative, short-slice JSCPP execution in a disposable Web Worker
 - Real-time-paced virtual clock and runaway-loop watchdog

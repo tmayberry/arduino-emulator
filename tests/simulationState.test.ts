@@ -69,13 +69,39 @@ describe("SimulationEngine", () => {
     expect(engine.digitalRead(7)).toBe(HIGH);
   });
 
-  it("supports PWM, simulated time, millis, and Arduino integer map", () => {
+  it("supports PWM, simulated time, millis, micros, and Arduino integer map", () => {
     const engine = new SimulationEngine(hardwareConfig);
     engine.analogWrite(TEST_LED_PIN, 128);
     expect(engine.state.pins.D4).toMatchObject({ outputKind: "pwm", outputValue: 128 });
     engine.delay(1000);
     expect(engine.millis()).toBe(1000);
+    expect(engine.micros()).toBe(1_000_000);
     expect(engine.map(512, 0, 1023, 0, 255)).toBe(127);
+  });
+
+  it("buffers UTF-8 serial input and exposes byte-oriented reads", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    engine.enqueueSerialInput("Aé");
+    expect(engine.serialAvailable()).toBe(3);
+    expect(engine.serialPeek()).toBe(65);
+    expect(engine.serialRead()).toBe(65);
+    expect([engine.serialRead(), engine.serialRead()]).toEqual([195, 169]);
+    expect(engine.serialRead()).toBe(-1);
+    expect(engine.serialPeek()).toBe(-1);
+  });
+
+  it("provides bounded and reproducible seeded random values", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    engine.randomSeed(12345);
+    const first = [engine.random(100), engine.random(-10, 10), engine.random(100)];
+    engine.randomSeed(12345);
+    expect([engine.random(100), engine.random(-10, 10), engine.random(100)]).toEqual(first);
+    expect(first[0]).toBeGreaterThanOrEqual(0);
+    expect(first[0]).toBeLessThan(100);
+    expect(first[1]).toBeGreaterThanOrEqual(-10);
+    expect(first[1]).toBeLessThan(10);
+    expect(engine.random(0)).toBe(0);
+    expect(engine.random(7, 7)).toBe(7);
   });
 
   it("returns live accelerometer readings and falls back to neutral when stale", () => {

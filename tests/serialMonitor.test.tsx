@@ -5,7 +5,14 @@ import { SerialMonitor } from "../src/ui/SerialMonitor";
 describe("SerialMonitor", () => {
   it("renders output verbatim and supports clearing it", () => {
     const onClear = vi.fn();
-    render(<SerialMonitor output={"value=42\ndone\n"} onClear={onClear} />);
+    render(
+      <SerialMonitor
+        output={"value=42\ndone\n"}
+        inputEnabled
+        onClear={onClear}
+        onSend={() => undefined}
+      />,
+    );
 
     expect(screen.getByText(/value=42/)).toHaveTextContent("value=42 done");
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
@@ -13,10 +20,57 @@ describe("SerialMonitor", () => {
   });
 
   it("shows an empty-state hint", () => {
-    render(<SerialMonitor output="" onClear={() => undefined} />);
+    render(
+      <SerialMonitor
+        output=""
+        inputEnabled={false}
+        onClear={() => undefined}
+        onSend={() => undefined}
+      />,
+    );
     expect(
       screen.getByText("Output from Serial.print() will appear here."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Serial input" })).toBeDisabled();
+  });
+
+  it("sends text with the selected line ending and clears the field", () => {
+    const onSend = vi.fn();
+    render(
+      <SerialMonitor
+        output=""
+        inputEnabled
+        onClear={() => undefined}
+        onSend={onSend}
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Serial input" });
+    fireEvent.change(input, { target: { value: "123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(onSend).toHaveBeenLastCalledWith("123\n");
+    expect(input).toHaveValue("");
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Line ending" }), {
+      target: { value: "both" },
+    });
+    fireEvent.change(input, { target: { value: "go" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(onSend).toHaveBeenLastCalledWith("go\r\n");
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Line ending" }), {
+      target: { value: "none" },
+    });
+    fireEvent.change(input, { target: { value: "raw" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(onSend).toHaveBeenLastCalledWith("raw");
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Line ending" }), {
+      target: { value: "carriageReturn" },
+    });
+    fireEvent.change(input, { target: { value: "cr" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(onSend).toHaveBeenLastCalledWith("cr\r");
   });
 });

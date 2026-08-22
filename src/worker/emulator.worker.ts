@@ -232,6 +232,9 @@ workerScope.onmessage = (event: MessageEvent<UiToWorkerMessage>) => {
         message.updatedAtMs,
       );
       break;
+    case "serial-input":
+      engine?.enqueueSerialInput(message.text);
+      break;
     case "stop":
       currentRun += 1;
       stopRun("Stopped by user");

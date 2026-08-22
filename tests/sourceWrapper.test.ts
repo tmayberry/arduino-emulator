@@ -13,6 +13,9 @@ describe("Arduino source wrapper", () => {
       hardwareConfig,
     );
     expect(wrapped.code).toContain("#define A7 21");
+    expect(wrapped.code).toContain("#define min(a,b)");
+    expect(wrapped.code).toContain("#define max(a,b)");
+    expect(wrapped.code).toContain("#define constrain(value,low,high)");
     expect(wrapped.code).toContain(`#define TEST_LED_PIN ${hardwareConfig.testLedPin}`);
     expect(wrapped.code).toContain("#define LED_BUILTIN 13");
     expect(wrapped.code).toContain('#include "Arduino.h"');

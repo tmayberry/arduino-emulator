@@ -28,6 +28,7 @@ export type UiToWorkerMessage =
       connected: boolean;
       updatedAtMs: number;
     }
+  | { type: "serial-input"; text: string }
   | { type: "stop" }
   | { type: "reset" };
 

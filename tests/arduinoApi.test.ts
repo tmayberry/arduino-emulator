@@ -34,6 +34,71 @@ int main() {
     expect(output).toBe("value=42 1 3.50\ndone\n");
   });
 
+  it("supports buffered Serial reads, parsing, strings, and virtual timeouts", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    engine.enqueueSerialInput("junk-42;3.25;hello world\nremainder");
+    let output = "";
+    const source = `
+#include "Arduino.h"
+int main() {
+  Serial.setTimeout(25);
+  Serial.println(Serial.available());
+  Serial.println(Serial.peek());
+  Serial.println(Serial.parseInt());
+  Serial.println(Serial.parseFloat());
+  Serial.println(Serial.readStringUntil('\\n'));
+  Serial.println(Serial.readString());
+  Serial.println(Serial.available());
+  Serial.println(Serial.read());
+  return 0;
+}`;
+
+    const result = runRestrictedJscpp(
+      source,
+      createArduinoInclude(engine, () => undefined, (text) => {
+        output += text;
+      }),
+    );
+
+    expect(result).toBe(0);
+    expect(output).toBe("34\n106\n-42\n3.25\n;hello world\nremainder\n0\n-1\n");
+    expect(engine.millis()).toBe(25);
+  });
+
+  it("times out an empty Serial parse using the default timeout", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    const result = runRestrictedJscpp(
+      `#include "Arduino.h"
+int main() { return Serial.parseInt(); }`,
+      createArduinoInclude(engine, () => undefined),
+    );
+
+    expect(result).toBe(0);
+    expect(engine.millis()).toBe(1_000);
+  });
+
+  it("supports repeatable Arduino random overloads", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    const source = `
+#include "Arduino.h"
+int main() {
+  randomSeed(77);
+  long first = random(1000);
+  long ranged = random(-20, 20);
+  randomSeed(77);
+  if (first != random(1000)) return 1;
+  if (ranged != random(-20, 20)) return 2;
+  if (first < 0 || first >= 1000) return 3;
+  if (ranged < -20 || ranged >= 20) return 4;
+  return 0;
+}`;
+
+    expect(runRestrictedJscpp(
+      source,
+      createArduinoInclude(engine, () => undefined),
+    )).toBe(0);
+  });
+
   it("supports Arduino String variables", () => {
     const engine = new SimulationEngine(hardwareConfig);
     let output = "";
@@ -152,6 +217,21 @@ int main() {
       { event: { type: "pin-change", pin: "D4", value: 0 }, time: 1000 },
     ]);
     expect(engine.millis()).toBe(2000);
+  });
+
+  it("exposes micros from the simulated clock", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    const source = `
+#include "Arduino.h"
+int main() {
+  delay(123);
+  return micros() == 123000 ? 0 : 1;
+}`;
+
+    expect(runRestrictedJscpp(
+      source,
+      createArduinoInclude(engine, () => undefined),
+    )).toBe(0);
   });
 
   it("returns live A7 and D2 values to interpreted code", () => {

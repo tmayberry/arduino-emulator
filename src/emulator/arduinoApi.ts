@@ -73,7 +73,12 @@ function installGlobalZeroInitialization(rt: JscppRuntime): void {
   };
 }
 
-function installArduinoString(rt: JscppRuntime): unknown {
+interface InstalledArduinoString {
+  type: unknown;
+  create(text: string): RuntimeValue;
+}
+
+function installArduinoString(rt: JscppRuntime): InstalledArduinoString {
   const charPointer = rt.normalPointerType(rt.charTypeLiteral);
   const stringType = rt.newClass("String", [
     {
@@ -214,7 +219,7 @@ function installArduinoString(rt: JscppRuntime): unknown {
     rt.makeCharArrayFromString(textOfString(value)),
   stringType, "c_str", [], charPointer);
 
-  return stringType;
+  return { type: stringType, create: newString };
 }
 
 export function createArduinoInclude(
@@ -228,7 +233,8 @@ export function createArduinoInclude(
       const long = rt.longTypeLiteral;
       const voidType = rt.voidTypeLiteral;
       installGlobalZeroInitialization(rt);
-      const stringType = installArduinoString(rt);
+      const arduinoString = installArduinoString(rt);
+      const stringType = arduinoString.type;
 
       const numberValue = (value: RuntimeValue): number => Number(value.v);
 
@@ -263,6 +269,7 @@ export function createArduinoInclude(
       }, "global", "delay", [long], voidType);
 
       rt.regFunc((runtime) => runtime.val(long, engine.millis()), "global", "millis", [], long);
+      rt.regFunc((runtime) => runtime.val(long, engine.micros()), "global", "micros", [], long);
 
       rt.regFunc((runtime, _this, value, fromLow, fromHigh, toLow, toHigh) =>
         runtime.val(
@@ -276,6 +283,20 @@ export function createArduinoInclude(
           ),
         ), "global", "map", [long, long, long, long, long], long);
 
+      // JSCPP's global overload resolver crashes when overloads have different
+      // arities, so model Arduino's one- and two-argument forms as one vararg.
+      rt.regFunc((runtime, _this, first, second) =>
+        runtime.val(
+          long,
+          second === undefined
+            ? engine.random(numberValue(first))
+            : engine.random(numberValue(first), numberValue(second)),
+        ),
+      "global", "random", [int, "?"], long);
+      rt.regFunc((_runtime, _this, seed) => {
+        engine.randomSeed(numberValue(seed));
+      }, "global", "randomSeed", [long], voidType);
+
       const serialType = rt.newClass("HardwareSerial", []);
       rt.scope[0].variables.Serial = {
         t: serialType,
@@ -287,6 +308,107 @@ export function createArduinoInclude(
         onHardwareActivity();
       };
       rt.regFunc(begin, serialType, "begin", [long], voidType);
+
+      let serialTimeoutMs = 1_000;
+      const serialActivity = (): void => onHardwareActivity();
+      const timeoutIfEmpty = (): void => {
+        if (engine.serialAvailable() === 0) engine.delay(serialTimeoutMs);
+      };
+
+      rt.regFunc((runtime) => {
+        serialActivity();
+        return runtime.val(int, engine.serialAvailable());
+      }, serialType, "available", [], int);
+      rt.regFunc((runtime) => {
+        serialActivity();
+        return runtime.val(int, engine.serialRead());
+      }, serialType, "read", [], int);
+      rt.regFunc((runtime) => {
+        serialActivity();
+        return runtime.val(int, engine.serialPeek());
+      }, serialType, "peek", [], int);
+      rt.regFunc((_runtime, _this, timeout) => {
+        serialTimeoutMs = Math.max(0, Math.trunc(numberValue(timeout)));
+        serialActivity();
+      }, serialType, "setTimeout", [long], voidType);
+
+      const isDigit = (value: number): boolean => value >= 48 && value <= 57;
+      const seekNumber = (allowDecimal: boolean): number => {
+        while (engine.serialAvailable() > 0) {
+          const value = engine.serialPeek();
+          if (value === 45 || isDigit(value) || (allowDecimal && value === 46)) {
+            return value;
+          }
+          engine.serialRead();
+        }
+        return -1;
+      };
+      const parseNumber = (allowDecimal: boolean): number => {
+        let value = 0;
+        let negative = false;
+        let fraction = 1;
+        let inFraction = false;
+        let firstCharacter = true;
+
+        if (seekNumber(allowDecimal) < 0) {
+          timeoutIfEmpty();
+          return 0;
+        }
+
+        while (engine.serialAvailable() > 0) {
+          const next = engine.serialPeek();
+          if (next === 45 && firstCharacter) {
+            negative = true;
+          } else if (allowDecimal && next === 46 && !inFraction) {
+            inFraction = true;
+          } else if (isDigit(next)) {
+            value = value * 10 + next - 48;
+            if (inFraction) fraction *= 0.1;
+          } else {
+            break;
+          }
+          engine.serialRead();
+          firstCharacter = false;
+        }
+        timeoutIfEmpty();
+        const parsed = inFraction ? value * fraction : value;
+        return negative ? -parsed : parsed;
+      };
+
+      rt.regFunc((runtime) => {
+        serialActivity();
+        return runtime.val(long, Math.trunc(parseNumber(false)));
+      }, serialType, "parseInt", [], long);
+      rt.regFunc((runtime) => {
+        serialActivity();
+        return runtime.val(rt.floatTypeLiteral, parseNumber(true));
+      }, serialType, "parseFloat", [], rt.floatTypeLiteral);
+
+      const readString = (terminator?: number): string => {
+        const bytes: number[] = [];
+        let foundTerminator = false;
+        while (engine.serialAvailable() > 0) {
+          const value = engine.serialRead();
+          if (terminator !== undefined && value === terminator) {
+            foundTerminator = true;
+            break;
+          }
+          bytes.push(value);
+        }
+        if (!foundTerminator && engine.serialAvailable() === 0) {
+          engine.delay(serialTimeoutMs);
+        }
+        return new TextDecoder().decode(new Uint8Array(bytes));
+      };
+
+      rt.regFunc((_runtime) => {
+        serialActivity();
+        return arduinoString.create(readString());
+      }, serialType, "readString", [], stringType);
+      rt.regFunc((_runtime, _this, terminator) => {
+        serialActivity();
+        return arduinoString.create(readString(numberValue(terminator)));
+      }, serialType, "readStringUntil", [rt.charTypeLiteral], stringType);
 
       const writeSerial = (text: string, newline: boolean): unknown => {
         const output = newline ? `${text}\n` : text;

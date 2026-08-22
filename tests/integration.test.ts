@@ -73,4 +73,21 @@ void loop() {}`, hardwareConfig);
       { value: 1, time: 2000 },
     ]);
   });
+
+  it("supports Arduino min, max, and constrain helpers for sketches", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    const wrapped = wrapArduinoSource(`
+void setup() {
+  float low = min(2.5, 3.5);
+  int result = (int)low + max(2, 4) + constrain(9, 0, 5);
+  digitalWrite(6, result == 11);
+}
+void loop() {}`, hardwareConfig);
+
+    expect(runRestrictedJscpp(
+      wrapped.code,
+      createArduinoInclude(engine, () => undefined),
+    )).toBe(0);
+    expect(engine.state.pins.D6.outputValue).toBe(1);
+  });
 });
