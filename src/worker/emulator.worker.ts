@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { hardwareConfig } from "../config/defaultHardware";
+import type { HardwareConfig } from "../config/types";
 import { createArduinoInclude, createImuInclude } from "../emulator/arduinoApi";
 import { normalizeDiagnosticMessage } from "../emulator/errorFormatting";
 import { runRestrictedJscpp } from "../emulator/jscppRuntime";
@@ -168,7 +168,7 @@ function runSlice(runId: number): void {
   }
 }
 
-function start(source: string, inputs: WorkerInputs): void {
+function start(source: string, config: HardwareConfig, inputs: WorkerInputs): void {
   clearScheduledSlice();
   currentRun += 1;
   const runId = currentRun;
@@ -177,9 +177,9 @@ function start(source: string, inputs: WorkerInputs): void {
   serialBuffer = "";
   serialOutputLength = 0;
 
-  engine = new SimulationEngine(hardwareConfig, inputs, (event) => post(event));
+  engine = new SimulationEngine(config, inputs, (event) => post(event));
   engine.state.running = true;
-  const wrapped = wrapArduinoSource(source, hardwareConfig);
+  const wrapped = wrapArduinoSource(source, config);
   currentPrefixLineCount = wrapped.prefixLineCount;
   currentSourceLineCount = source.split("\n").length;
 
@@ -220,10 +220,10 @@ workerScope.onmessage = (event: MessageEvent<UiToWorkerMessage>) => {
   const message = event.data;
   switch (message.type) {
     case "start":
-      start(message.source, message.inputs);
+      start(message.source, message.config, message.inputs);
       break;
     case "input-change":
-      engine?.setInput(message.component, message.value);
+      engine?.setInput(message.componentId, message.value);
       break;
     case "accelerometer-change":
       engine?.setAccelerometer(

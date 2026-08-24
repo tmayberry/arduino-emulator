@@ -5,9 +5,10 @@ interface PotentiometerProps {
   component: PotentiometerComponentConfig;
   value: number;
   onChange(value: number): void;
+  onConfigure(): void;
 }
 
-export function Potentiometer({ component, value, onChange }: PotentiometerProps) {
+export function Potentiometer({ component, value, onChange, onConfigure }: PotentiometerProps) {
   const percentage = (value - component.min) / (component.max - component.min);
   const angle = -135 + percentage * 270;
 
@@ -20,7 +21,18 @@ export function Potentiometer({ component, value, onChange }: PotentiometerProps
         </div>
         <span className="collapsible-heading-end">
           <span className="input-summary-value">{value}</span>
-          <span className="pin-chip">{component.pin}</span>
+          <button
+            className="pin-chip pin-config-button"
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onConfigure();
+            }}
+            aria-label={`Configure ${component.label} on ${component.pin}`}
+          >
+            {component.pin}
+          </button>
           <ChevronDown className="collapse-chevron" size={17} aria-hidden="true" />
         </span>
       </summary>

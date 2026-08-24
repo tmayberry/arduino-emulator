@@ -236,8 +236,10 @@ int main() {
 
   it("returns live A7 and D2 values to interpreted code", () => {
     const engine = new SimulationEngine(hardwareConfig, {
-      potentiometer: 723,
-      toggleSwitch: true,
+      components: {
+        potentiometer: 723,
+        toggleSwitch: true,
+      },
     });
     const source = `
 #include "Arduino.h"

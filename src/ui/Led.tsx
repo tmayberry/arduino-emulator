@@ -3,9 +3,10 @@ import type { LedComponentConfig } from "../config/types";
 interface LedProps {
   component: LedComponentConfig;
   brightness: number;
+  onConfigure(): void;
 }
 
-export function Led({ component, brightness }: LedProps) {
+export function Led({ component, brightness, onConfigure }: LedProps) {
   const level = Math.max(0, Math.min(1, brightness));
   const glow = `0 0 ${8 + level * 24}px ${component.color}`;
 
@@ -23,7 +24,14 @@ export function Led({ component, brightness }: LedProps) {
       </div>
       <div className="led-legs"><span /><span /></div>
       <strong>{component.label}</strong>
-      <small>{typeof component.pin === "number" ? `D${component.pin}` : component.pin}</small>
+      <button
+        className="pin-chip pin-config-button"
+        type="button"
+        onClick={onConfigure}
+        aria-label={`Configure ${component.label} on ${typeof component.pin === "number" ? `D${component.pin}` : component.pin}`}
+      >
+        {typeof component.pin === "number" ? `D${component.pin}` : component.pin}
+      </button>
     </div>
   );
 }

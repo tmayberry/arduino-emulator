@@ -1,3 +1,5 @@
+import type { HardwareConfig } from "../config/types";
+
 export interface AccelerometerReading {
   x: number;
   y: number;
@@ -10,16 +12,15 @@ export interface AccelerometerInput extends AccelerometerReading {
 }
 
 export interface WorkerInputs {
-  potentiometer: number;
-  toggleSwitch: boolean;
+  components: Record<string, number | boolean>;
   accelerometer: AccelerometerInput;
 }
 
 export type UiToWorkerMessage =
-  | { type: "start"; source: string; inputs: WorkerInputs }
+  | { type: "start"; source: string; config: HardwareConfig; inputs: WorkerInputs }
   | {
       type: "input-change";
-      component: "potentiometer" | "toggleSwitch";
+      componentId: string;
       value: number | boolean;
     }
   | {

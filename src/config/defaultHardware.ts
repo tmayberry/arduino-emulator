@@ -3,7 +3,7 @@ import type { HardwareConfig } from "./types";
 /** The starter sketch blinks the external green LED. */
 export const TEST_LED_PIN = 4;
 
-export const hardwareConfig = {
+export const hardwareConfig: HardwareConfig = {
   id: "default-hardware",
   name: "Default Hardware",
   board: {
@@ -16,6 +16,7 @@ export const hardwareConfig = {
     {
       id: "builtInYellowLed",
       type: "led",
+      origin: "default",
       label: "Built-in Yellow LED",
       pin: 13,
       activeHigh: true,
@@ -25,6 +26,7 @@ export const hardwareConfig = {
     {
       id: "externalGreenLed",
       type: "led",
+      origin: "default",
       label: "Green LED",
       pin: 4,
       activeHigh: true,
@@ -34,6 +36,7 @@ export const hardwareConfig = {
     {
       id: "externalRedLed",
       type: "led",
+      origin: "default",
       label: "Red LED",
       pin: 6,
       activeHigh: true,
@@ -43,6 +46,7 @@ export const hardwareConfig = {
     {
       id: "potentiometer",
       type: "potentiometer",
+      origin: "default",
       label: "Potentiometer",
       pin: "A7",
       min: 0,
@@ -52,6 +56,7 @@ export const hardwareConfig = {
     {
       id: "toggleSwitch",
       type: "toggle-switch",
+      origin: "default",
       label: "Toggle Switch",
       pin: 2,
       onValue: 1,
@@ -65,4 +70,4 @@ export const hardwareConfig = {
       placement: "board",
     },
   ],
-} satisfies HardwareConfig;
+};

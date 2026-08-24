@@ -5,9 +5,10 @@ interface ToggleSwitchProps {
   component: ToggleSwitchComponentConfig;
   checked: boolean;
   onChange(value: boolean): void;
+  onConfigure(): void;
 }
 
-export function ToggleSwitch({ component, checked, onChange }: ToggleSwitchProps) {
+export function ToggleSwitch({ component, checked, onChange, onConfigure }: ToggleSwitchProps) {
   const digitalValue = checked ? component.onValue : component.offValue;
 
   return (
@@ -19,7 +20,18 @@ export function ToggleSwitch({ component, checked, onChange }: ToggleSwitchProps
         </div>
         <span className="collapsible-heading-end">
           <span className="input-summary-value">{digitalValue === 1 ? "HIGH" : "LOW"}</span>
-          <span className="pin-chip">D{component.pin}</span>
+          <button
+            className="pin-chip pin-config-button"
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onConfigure();
+            }}
+            aria-label={`Configure ${component.label} on D${component.pin}`}
+          >
+            D{component.pin}
+          </button>
           <ChevronDown className="collapse-chevron" size={17} aria-hidden="true" />
         </span>
       </summary>

@@ -2,6 +2,7 @@ import type {
   HardwareConfig,
   PinReference,
   PotentiometerComponentConfig,
+  SensorComponentConfig,
   ToggleSwitchComponentConfig,
 } from "../config/types";
 import type {
@@ -28,8 +29,7 @@ export interface SimulationState {
   virtualTimeMs: number;
   pins: Record<string, PinState>;
   inputs: {
-    potentiometer: number;
-    toggleSwitch: boolean;
+    components: Record<string, number | boolean>;
     accelerometer: AccelerometerInput;
   };
 }
@@ -61,22 +61,23 @@ export function normalizePin(pin: PinReference | number | string): NormalizedPin
 }
 
 export function createInitialSimulationState(config: HardwareConfig): SimulationState {
-  const potentiometer = config.components.find(
-    (component): component is PotentiometerComponentConfig =>
-      component.type === "potentiometer",
-  );
-  const toggle = config.components.find(
-    (component): component is ToggleSwitchComponentConfig =>
-      component.type === "toggle-switch",
-  );
+  const components: Record<string, number | boolean> = {};
+  for (const component of config.components) {
+    if (component.type === "potentiometer") {
+      components[component.id] = component.defaultValue;
+    } else if (component.type === "sensor") {
+      components[component.id] = component.defaultValue;
+    } else if (component.type === "toggle-switch") {
+      components[component.id] = component.defaultPosition === "on";
+    }
+  }
 
   return {
     running: false,
     virtualTimeMs: 0,
     pins: {},
     inputs: {
-      potentiometer: potentiometer?.defaultValue ?? 0,
-      toggleSwitch: toggle?.defaultPosition === "on",
+      components,
       accelerometer: {
         ...NEUTRAL_ACCELERATION,
         connected: false,
@@ -107,7 +108,15 @@ export class SimulationEngine {
     private readonly emit: (event: SimulationEvent) => void = () => undefined,
   ) {
     this.state = createInitialSimulationState(config);
-    Object.assign(this.state.inputs, initialInputs);
+    if (initialInputs?.components) {
+      Object.assign(this.state.inputs.components, initialInputs.components);
+    }
+    if (initialInputs?.accelerometer) {
+      this.state.inputs.accelerometer = {
+        ...this.state.inputs.accelerometer,
+        ...initialInputs.accelerometer,
+      };
+    }
   }
 
   private pin(pin: PinReference | number | string): PinState {
@@ -148,7 +157,7 @@ export class SimulationEngine {
         component.type === "toggle-switch" && normalizePin(component.pin) === id,
     );
     if (toggle) {
-      return this.state.inputs.toggleSwitch ? toggle.onValue : toggle.offValue;
+      return this.state.inputs.components[toggle.id] ? toggle.onValue : toggle.offValue;
     }
 
     const pinState = this.pin(pin);
@@ -159,31 +168,42 @@ export class SimulationEngine {
 
   analogRead(pin: PinReference | number | string): number {
     const id = normalizePin(pin);
-    const potentiometer = this.config.components.find(
-      (component): component is PotentiometerComponentConfig =>
-        component.type === "potentiometer" && normalizePin(component.pin) === id,
+    const analogInput = this.config.components.find(
+      (component): component is PotentiometerComponentConfig | SensorComponentConfig =>
+        (component.type === "potentiometer" || component.type === "sensor") &&
+        normalizePin(component.pin) === id,
     );
-    if (!potentiometer) return 0;
+    if (!analogInput) return 0;
+    const value = Number(this.state.inputs.components[analogInput.id]);
+    if (analogInput.type === "sensor") {
+      const physicalValue = Number.isFinite(value) ? value : analogInput.defaultValue;
+      const clamped = Math.max(analogInput.rangeStart, Math.min(analogInput.rangeEnd, physicalValue));
+      return Math.round(
+        ((clamped - analogInput.rangeStart) / (analogInput.rangeEnd - analogInput.rangeStart)) * 1023,
+      );
+    }
     return Math.max(
-      potentiometer.min,
-      Math.min(potentiometer.max, Math.round(this.state.inputs.potentiometer)),
+      analogInput.min,
+      Math.min(analogInput.max, Math.round(Number.isFinite(value) ? value : analogInput.defaultValue)),
     );
   }
 
-  setInput(component: "potentiometer" | "toggleSwitch", value: number | boolean): void {
-    if (component === "potentiometer") {
-      const potentiometer = this.config.components.find(
-        (item): item is PotentiometerComponentConfig => item.type === "potentiometer",
+  setInput(componentId: string, value: number | boolean): void {
+    const component = this.config.components.find((item) => item.id === componentId);
+    if (component?.type === "potentiometer") {
+      this.state.inputs.components[componentId] = Math.max(
+        component.min,
+        Math.min(component.max, Math.round(Number(value))),
       );
-      const min = potentiometer?.min ?? 0;
-      const max = potentiometer?.max ?? 1023;
-      this.state.inputs.potentiometer = Math.max(
-        min,
-        Math.min(max, Math.round(Number(value))),
+    } else if (component?.type === "sensor") {
+      const numeric = Number(value);
+      this.state.inputs.components[componentId] = Math.max(
+        component.rangeStart,
+        Math.min(component.rangeEnd, Number.isFinite(numeric) ? numeric : component.defaultValue),
       );
-      return;
+    } else if (component?.type === "toggle-switch") {
+      this.state.inputs.components[componentId] = Boolean(value);
     }
-    this.state.inputs.toggleSwitch = Boolean(value);
   }
 
   setAccelerometer(

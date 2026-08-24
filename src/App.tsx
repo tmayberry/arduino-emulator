@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CircleStop, Play, RotateCcw, Zap } from "lucide-react";
-import { hardwareConfig } from "./config/defaultHardware";
+import { CircleStop, Code2, Gauge, Play, RotateCcw, TerminalSquare, Zap } from "lucide-react";
+import {
+  defaultHardware,
+  HARDWARE_STORAGE_KEY,
+  isDefaultHardware,
+  loadHardwareConfig,
+} from "./config/hardwareSetup";
+import type { HardwareConfig } from "./config/types";
 import { STARTER_SKETCH } from "./config/starterSketch";
 import { createInitialSimulationState } from "./emulator/simulationState";
 import type {
@@ -10,12 +16,14 @@ import type {
 } from "./emulator/workerProtocol";
 import { isWorkerMessage } from "./emulator/workerProtocol";
 import { CodeEditor } from "./ui/CodeEditor";
+import { BoardSetupDialog } from "./ui/BoardSetupDialog";
 import { HardwareView, type PinOutput } from "./ui/HardwareView";
 import { SerialMonitor } from "./ui/SerialMonitor";
 import { StatusPanel, type RunStatus } from "./ui/StatusPanel";
 
 const STORAGE_KEY = "arduino-emulator.code.v1";
 const MAX_SERIAL_MONITOR_LENGTH = 100_000;
+type WorkspaceSection = "code" | "hardware" | "serial";
 
 function loadSavedSketch(): string {
   try {
@@ -33,6 +41,7 @@ function makeWorker(): Worker {
 }
 
 export default function App() {
+  const [hardwareConfig, setHardwareConfig] = useState(() => loadHardwareConfig(window.localStorage));
   const initialState = useRef(createInitialSimulationState(hardwareConfig));
   const [source, setSource] = useState(loadSavedSketch);
   const [status, setStatus] = useState<RunStatus>("ready");
@@ -41,12 +50,11 @@ export default function App() {
   const [virtualTimeMs, setVirtualTimeMs] = useState(0);
   const [serialOutput, setSerialOutput] = useState("");
   const [pinOutputs, setPinOutputs] = useState<Record<string, PinOutput>>({});
-  const [potentiometer, setPotentiometer] = useState(
-    initialState.current.inputs.potentiometer,
+  const [componentInputs, setComponentInputs] = useState(
+    initialState.current.inputs.components,
   );
-  const [toggleSwitch, setToggleSwitch] = useState(
-    initialState.current.inputs.toggleSwitch,
-  );
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<WorkspaceSection>("code");
   const [accelerometer, setAccelerometer] = useState<AccelerometerReading>({
     x: initialState.current.inputs.accelerometer.x,
     y: initialState.current.inputs.accelerometer.y,
@@ -142,9 +150,9 @@ export default function App() {
     const message: UiToWorkerMessage = {
       type: "start",
       source,
+      config: hardwareConfig,
       inputs: {
-        potentiometer,
-        toggleSwitch,
+        components: componentInputs,
         accelerometer: {
           ...accelerometer,
           connected: accelerometerConnected,
@@ -153,7 +161,7 @@ export default function App() {
       },
     };
     worker.postMessage(message);
-  }, [accelerometer, accelerometerConnected, handleWorkerMessage, potentiometer, source, terminateWorker, toggleSwitch]);
+  }, [accelerometer, accelerometerConnected, componentInputs, handleWorkerMessage, hardwareConfig, source, terminateWorker]);
 
   const stop = useCallback(() => {
     terminateWorker();
@@ -165,30 +173,90 @@ export default function App() {
 
   const reset = useCallback(() => {
     terminateWorker();
-    const fresh = createInitialSimulationState(hardwareConfig);
+    const defaultConfig = defaultHardware();
+    const fresh = createInitialSimulationState(defaultConfig);
     runtimeErrorRef.current = false;
+    setHardwareConfig(defaultConfig);
     setPinOutputs({});
-    setPotentiometer(fresh.inputs.potentiometer);
-    setToggleSwitch(fresh.inputs.toggleSwitch);
+    setComponentInputs(fresh.inputs.components);
+    setAccelerometer({
+      x: fresh.inputs.accelerometer.x,
+      y: fresh.inputs.accelerometer.y,
+      z: fresh.inputs.accelerometer.z,
+    });
+    setAccelerometerConnected(false);
+    accelerometerUpdatedAtRef.current = 0;
     setVirtualTimeMs(0);
     setSerialOutput("");
     setStatus("ready");
-    setStatusMessage("Hardware reset. Your sketch is unchanged.");
+    setStatusMessage("Hardware and board setup reset to defaults. Your sketch is unchanged.");
     setErrorLine(undefined);
+    setSetupOpen(false);
+    try {
+      localStorage.removeItem(HARDWARE_STORAGE_KEY);
+    } catch {
+      // Reset still succeeds when storage is unavailable.
+    }
   }, [terminateWorker]);
+
+  const resetBoard = useCallback(() => {
+    terminateWorker();
+    const fresh = createInitialSimulationState(hardwareConfig);
+    runtimeErrorRef.current = false;
+    setPinOutputs({});
+    setComponentInputs(fresh.inputs.components);
+    setAccelerometer({
+      x: fresh.inputs.accelerometer.x,
+      y: fresh.inputs.accelerometer.y,
+      z: fresh.inputs.accelerometer.z,
+    });
+    setAccelerometerConnected(false);
+    accelerometerUpdatedAtRef.current = 0;
+    setVirtualTimeMs(0);
+    setSerialOutput("");
+    setStatus("ready");
+    setStatusMessage("Board reset. Your configured devices and pins were kept.");
+    setErrorLine(undefined);
+  }, [hardwareConfig, terminateWorker]);
 
   const sendInput = useCallback((message: UiToWorkerMessage) => {
     workerRef.current?.postMessage(message);
   }, []);
 
-  const changePotentiometer = (value: number) => {
-    setPotentiometer(value);
-    sendInput({ type: "input-change", component: "potentiometer", value });
+  const changeInput = (componentId: string, value: number | boolean) => {
+    setComponentInputs((current) => ({ ...current, [componentId]: value }));
+    sendInput({ type: "input-change", componentId, value });
   };
 
-  const changeToggle = (value: boolean) => {
-    setToggleSwitch(value);
-    sendInput({ type: "input-change", component: "toggleSwitch", value });
+  const applyHardwareSetup = (config: HardwareConfig) => {
+    terminateWorker();
+    const fresh = createInitialSimulationState(config);
+    runtimeErrorRef.current = false;
+    setHardwareConfig(config);
+    setComponentInputs(fresh.inputs.components);
+    setAccelerometer({
+      x: fresh.inputs.accelerometer.x,
+      y: fresh.inputs.accelerometer.y,
+      z: fresh.inputs.accelerometer.z,
+    });
+    setAccelerometerConnected(false);
+    accelerometerUpdatedAtRef.current = 0;
+    setPinOutputs({});
+    setVirtualTimeMs(0);
+    setSerialOutput("");
+    setStatus("ready");
+    setStatusMessage("Board setup updated. Run the sketch to use the new pins.");
+    setErrorLine(undefined);
+    setSetupOpen(false);
+    try {
+      if (isDefaultHardware(config)) {
+        localStorage.removeItem(HARDWARE_STORAGE_KEY);
+      } else {
+        localStorage.setItem(HARDWARE_STORAGE_KEY, JSON.stringify(config));
+      }
+    } catch {
+      // The active setup remains usable when persistence is unavailable.
+    }
   };
 
   const changeAccelerometer = useCallback((
@@ -224,6 +292,12 @@ export default function App() {
             <h1>Arduino Emulator</h1>
           </div>
         </div>
+        <StatusPanel
+          status={status}
+          message={statusMessage}
+          line={errorLine}
+          virtualTimeMs={virtualTimeMs}
+        />
         <div className="run-controls" aria-label="Simulation controls">
           <button className="control-button run-button" type="button" onClick={run} disabled={isActive}>
             <Play size={16} fill="currentColor" aria-hidden="true" />
@@ -233,42 +307,66 @@ export default function App() {
             <CircleStop size={16} aria-hidden="true" />
             Stop
           </button>
-          <button className="control-button reset-button" type="button" onClick={reset}>
+          <button
+            className="control-button reset-button"
+            type="button"
+            onClick={reset}
+            title="Stop the sketch, clear hardware state, and restore the default board setup"
+          >
             <RotateCcw size={16} aria-hidden="true" />
-            Reset
+            Reset all
           </button>
         </div>
       </header>
 
+      <nav className="mobile-section-nav" aria-label="Workspace sections">
+        <button type="button" aria-pressed={activeSection === "code"} onClick={() => setActiveSection("code")}>
+          <Code2 size={16} aria-hidden="true" /> Code
+        </button>
+        <button type="button" aria-pressed={activeSection === "hardware"} onClick={() => setActiveSection("hardware")}>
+          <Gauge size={16} aria-hidden="true" /> Hardware
+        </button>
+        <button type="button" aria-pressed={activeSection === "serial"} onClick={() => setActiveSection("serial")}>
+          <TerminalSquare size={16} aria-hidden="true" /> Serial
+        </button>
+      </nav>
+
       <div className="workspace">
         <div className="editor-column">
-          <CodeEditor value={source} onChange={setSource} onRestore={restoreStarter} />
-          <StatusPanel
-            status={status}
-            message={statusMessage}
-            line={errorLine}
-            virtualTimeMs={virtualTimeMs}
-          />
-          <SerialMonitor
-            output={serialOutput}
-            inputEnabled={isActive}
-            onClear={() => setSerialOutput("")}
-            onSend={(text) => sendInput({ type: "serial-input", text })}
+          <div className={`mobile-pane code-pane${activeSection === "code" ? " mobile-pane-active" : ""}`}>
+            <CodeEditor value={source} onChange={setSource} onRestore={restoreStarter} />
+          </div>
+          <div className={`mobile-pane serial-pane${activeSection === "serial" ? " mobile-pane-active" : ""}`}>
+            <SerialMonitor
+              output={serialOutput}
+              inputEnabled={isActive}
+              forceExpanded={activeSection === "serial"}
+              onClear={() => setSerialOutput("")}
+              onSend={(text) => sendInput({ type: "serial-input", text })}
+            />
+          </div>
+        </div>
+        <div className={`mobile-pane hardware-pane${activeSection === "hardware" ? " mobile-pane-active" : ""}`}>
+          <HardwareView
+            config={hardwareConfig}
+            pinOutputs={pinOutputs}
+            componentInputs={componentInputs}
+            accelerometer={accelerometer}
+            accelerometerConnected={accelerometerConnected}
+            onInputChange={changeInput}
+            onAccelerometerChange={changeAccelerometer}
+            onReset={resetBoard}
+            onConfigure={() => setSetupOpen(true)}
           />
         </div>
-        <HardwareView
-          config={hardwareConfig}
-          pinOutputs={pinOutputs}
-          potentiometer={potentiometer}
-          toggleSwitch={toggleSwitch}
-          accelerometer={accelerometer}
-          accelerometerConnected={accelerometerConnected}
-          onPotentiometerChange={changePotentiometer}
-          onToggleChange={changeToggle}
-          onAccelerometerChange={changeAccelerometer}
-          onReset={reset}
-        />
       </div>
+      {setupOpen && (
+        <BoardSetupDialog
+          config={hardwareConfig}
+          onApply={applyHardwareSetup}
+          onClose={() => setSetupOpen(false)}
+        />
+      )}
     </main>
   );
 }

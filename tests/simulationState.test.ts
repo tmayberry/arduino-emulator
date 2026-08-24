@@ -59,6 +59,35 @@ describe("SimulationEngine", () => {
     expect(engine.analogRead(21)).toBe(850);
   });
 
+  it("maps physical sensor ranges to the 10-bit analogRead range", () => {
+    const config = {
+      ...hardwareConfig,
+      components: [
+        ...hardwareConfig.components,
+        {
+          id: "thermometer",
+          type: "sensor" as const,
+          origin: "custom" as const,
+          label: "Thermometer",
+          pin: "A0" as const,
+          rangeStart: -20,
+          rangeEnd: 120,
+          units: "°C",
+          defaultValue: 50,
+        },
+      ],
+    };
+    const engine = new SimulationEngine(config);
+
+    expect(engine.analogRead("A0")).toBe(512);
+    engine.setInput("thermometer", -20);
+    expect(engine.analogRead("A0")).toBe(0);
+    engine.setInput("thermometer", 120);
+    expect(engine.analogRead("A0")).toBe(1023);
+    engine.setInput("thermometer", 190);
+    expect(engine.analogRead("A0")).toBe(1023);
+  });
+
   it("reads the configured D2 toggle values and pull-up defaults", () => {
     const engine = new SimulationEngine(hardwareConfig);
     engine.setInput("toggleSwitch", false);
@@ -67,6 +96,46 @@ describe("SimulationEngine", () => {
     expect(engine.digitalRead("D2")).toBe(HIGH);
     engine.pinMode(7, INPUT_PULLUP);
     expect(engine.digitalRead(7)).toBe(HIGH);
+  });
+
+  it("tracks multiple configured inputs independently by component id", () => {
+    const config = {
+      ...hardwareConfig,
+      components: [
+        ...hardwareConfig.components,
+        {
+          id: "custom-toggle",
+          type: "toggle-switch" as const,
+          origin: "custom" as const,
+          label: "Second Switch",
+          pin: 8,
+          onValue: 1 as const,
+          offValue: 0 as const,
+          defaultPosition: "off" as const,
+        },
+        {
+          id: "custom-pot",
+          type: "potentiometer" as const,
+          origin: "custom" as const,
+          label: "Second Potentiometer",
+          pin: "A0" as const,
+          min: 0,
+          max: 1023,
+          defaultValue: 512,
+        },
+      ],
+    };
+    const engine = new SimulationEngine(config);
+
+    engine.setInput("toggleSwitch", false);
+    engine.setInput("custom-toggle", true);
+    engine.setInput("potentiometer", 111);
+    engine.setInput("custom-pot", 777);
+
+    expect(engine.digitalRead(2)).toBe(LOW);
+    expect(engine.digitalRead(8)).toBe(HIGH);
+    expect(engine.analogRead("A7")).toBe(111);
+    expect(engine.analogRead("A0")).toBe(777);
   });
 
   it("supports PWM, simulated time, millis, micros, and Arduino integer map", () => {

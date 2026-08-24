@@ -14,14 +14,15 @@ A general-purpose, completely client-side Arduino programming emulator for the c
 - Cooperative, short-slice JSCPP execution in a disposable Web Worker
 - Real-time-paced virtual clock and runaway-loop watchdog
 - Built-in yellow LED (`LED_BUILTIN`) on D13, external green LED on D4, external red LED on D6, A7 potentiometer, and D2 toggle switch
+- Persistent board setup editor for renaming and repinning external devices and adding switches, potentiometers, or ranged analog sensors with physical units
 - Arduino BMI270 accelerometer compatibility with `IMU.begin()`, `IMU.accelerationAvailable()`, and `IMU.readAcceleration(x, y, z)`
 - Direct phone accelerometer input over WebRTC using serverless two-QR pairing
 - Live interactive 3D acceleration vector, magnitude, and Lab 2 ±1.5 g threshold guides
-- Clickable onboard reset button that stops the sketch and restores default hardware state
+- Clickable onboard reset button that resets the current virtual board while preserving custom setup, plus a separate Reset all control
 - Hard-stop worker termination and full hardware reset
 - Student-friendly interpreter error display
 
-The starter sketch declares `int red = 6` and blinks the external red LED on D6. Hardware relationships and placement metadata live in [`src/config/defaultHardware.ts`](src/config/defaultHardware.ts).
+The starter sketch is unchanged when hardware is reconfigured, so users should update any literal pin numbers in their code to match their selected setup. `LED_BUILTIN` remains on D13, while `TEST_LED_PIN` follows the configured green LED. Hardware relationships and placement metadata live in [`src/config/defaultHardware.ts`](src/config/defaultHardware.ts).
 
 ## Local development
 

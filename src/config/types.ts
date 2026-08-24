@@ -8,6 +8,7 @@ export interface BoardConfig {
 export interface LedComponentConfig {
   id: string;
   type: "led";
+  origin: "default";
   label: string;
   pin: PinReference;
   activeHigh: boolean;
@@ -18,6 +19,7 @@ export interface LedComponentConfig {
 export interface PotentiometerComponentConfig {
   id: string;
   type: "potentiometer";
+  origin: "default" | "custom";
   label: string;
   pin: PinReference;
   min: number;
@@ -25,9 +27,22 @@ export interface PotentiometerComponentConfig {
   defaultValue: number;
 }
 
+export interface SensorComponentConfig {
+  id: string;
+  type: "sensor";
+  origin: "custom";
+  label: string;
+  pin: PinReference;
+  rangeStart: number;
+  rangeEnd: number;
+  units: string;
+  defaultValue: number;
+}
+
 export interface ToggleSwitchComponentConfig {
   id: string;
   type: "toggle-switch";
+  origin: "default" | "custom";
   label: string;
   pin: PinReference;
   onValue: 0 | 1;
@@ -45,6 +60,7 @@ export interface ResetButtonComponentConfig {
 export type ComponentConfig =
   | LedComponentConfig
   | PotentiometerComponentConfig
+  | SensorComponentConfig
   | ToggleSwitchComponentConfig
   | ResetButtonComponentConfig;
 

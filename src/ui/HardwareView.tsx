@@ -1,9 +1,11 @@
-import { Cpu } from "lucide-react";
+import { useState } from "react";
+import { Cpu, Gauge, Settings2, Smartphone } from "lucide-react";
 import type {
   HardwareConfig,
   LedComponentConfig,
   PotentiometerComponentConfig,
   ResetButtonComponentConfig,
+  SensorComponentConfig,
   ToggleSwitchComponentConfig,
 } from "../config/types";
 import { normalizePin } from "../emulator/simulationState";
@@ -11,6 +13,7 @@ import type { AccelerometerReading } from "../emulator/workerProtocol";
 import { AccelerometerPanel } from "./AccelerometerPanel";
 import { Led } from "./Led";
 import { Potentiometer } from "./Potentiometer";
+import { Sensor } from "./Sensor";
 import { ToggleSwitch } from "./ToggleSwitch";
 
 export interface PinOutput {
@@ -18,21 +21,22 @@ export interface PinOutput {
   value: number;
 }
 
+type HardwareTab = "inputs" | "motion";
+
 interface HardwareViewProps {
   config: HardwareConfig;
   pinOutputs: Record<string, PinOutput>;
-  potentiometer: number;
-  toggleSwitch: boolean;
+  componentInputs: Record<string, number | boolean>;
   accelerometer: AccelerometerReading;
   accelerometerConnected: boolean;
-  onPotentiometerChange(value: number): void;
-  onToggleChange(value: boolean): void;
+  onInputChange(componentId: string, value: number | boolean): void;
   onAccelerometerChange(
     reading: AccelerometerReading,
     connected: boolean,
     updatedAtMs: number,
   ): void;
   onReset(): void;
+  onConfigure(): void;
 }
 
 function ledBrightness(
@@ -48,25 +52,28 @@ function ledBrightness(
 export function HardwareView({
   config,
   pinOutputs,
-  potentiometer,
-  toggleSwitch,
+  componentInputs,
   accelerometer,
   accelerometerConnected,
-  onPotentiometerChange,
-  onToggleChange,
+  onInputChange,
   onAccelerometerChange,
   onReset,
+  onConfigure,
 }: HardwareViewProps) {
+  const [activeTab, setActiveTab] = useState<HardwareTab>("inputs");
   const leds = config.components.filter(
     (component): component is LedComponentConfig => component.type === "led",
   );
-  const pot = config.components.find(
+  const pots = config.components.filter(
     (component): component is PotentiometerComponentConfig =>
       component.type === "potentiometer",
   );
-  const toggle = config.components.find(
+  const toggles = config.components.filter(
     (component): component is ToggleSwitchComponentConfig =>
       component.type === "toggle-switch",
+  );
+  const sensors = config.components.filter(
+    (component): component is SensorComponentConfig => component.type === "sensor",
   );
   const resetButton = config.components.find(
     (component): component is ResetButtonComponentConfig =>
@@ -76,18 +83,36 @@ export function HardwareView({
   const breadboardLeds = leds.filter(
     (component) => component.placement === "breadboard",
   );
+  const inputSummary = [
+    ...pots.map((pot) => `${pot.pin} ${Number(componentInputs[pot.id] ?? pot.defaultValue)}`),
+    ...sensors.map((sensor) => {
+      const value = Number(componentInputs[sensor.id] ?? sensor.defaultValue);
+      const formatted = Number.isInteger(value) ? value : Number(value.toFixed(2));
+      return `${sensor.pin} ${formatted} ${sensor.units}`;
+    }),
+    ...toggles.map((toggle) => `D${toggle.pin} ${Boolean(componentInputs[toggle.id]) ? "HIGH" : "LOW"}`),
+  ].join(" · ");
+  const motionSummary = accelerometerConnected
+    ? `${accelerometer.x.toFixed(1)}, ${accelerometer.y.toFixed(1)}, ${accelerometer.z.toFixed(1)} g`
+    : "Disconnected";
 
   return (
     <section className="workspace-panel hardware-panel" aria-label="Virtual hardware">
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">Virtual hardware</span>
           <h2>{config.board.label}</h2>
+          <small className="panel-subtitle">Virtual hardware</small>
         </div>
-        <span className="config-chip">{config.name}</span>
+        <button className="config-button" type="button" onClick={onConfigure}>
+          <Settings2 size={17} aria-hidden="true" />
+          <span>
+            <strong>Configure devices &amp; pins</strong>
+            <small>{config.name}</small>
+          </span>
+        </button>
       </div>
 
-      <div className="hardware-canvas">
+      <div className="hardware-canvas" aria-label="Circuit overview">
         <div className="breadboard">
           <div className="rail rail-top" />
           <div className="rail rail-bottom" />
@@ -96,7 +121,7 @@ export function HardwareView({
             <div className="nano-board">
               <div className="nano-pins left-pins">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</div>
               <div className="nano-content">
-                <Cpu size={27} strokeWidth={1.5} aria-hidden="true" />
+                <Cpu size={24} strokeWidth={1.5} aria-hidden="true" />
                 <strong>NANO 33 BLE</strong>
                 <span>nRF52840</span>
                 <div className="nano-controls">
@@ -122,7 +147,7 @@ export function HardwareView({
                       type="button"
                       onClick={onReset}
                       aria-label="Press the Nano reset button"
-                      title="Reset the board"
+                      title="Stop the sketch and reset this board while keeping the configured pins"
                     >
                       <span aria-hidden="true" />
                       <small>RESET</small>
@@ -137,34 +162,66 @@ export function HardwareView({
           <div className="wire wire-blue" />
           <div className="led-bank">
             {breadboardLeds.map((led) => (
-              <Led key={led.id} component={led} brightness={ledBrightness(led, pinOutputs)} />
+              <Led key={led.id} component={led} brightness={ledBrightness(led, pinOutputs)} onConfigure={onConfigure} />
             ))}
           </div>
-          <span className="breadboard-label">Configured circuit · fixed layout</span>
+          <span className="breadboard-label">Live circuit</span>
         </div>
       </div>
 
-      <div className="input-grid">
-        {pot && (
-          <Potentiometer
-            component={pot}
-            value={potentiometer}
-            onChange={onPotentiometerChange}
-          />
-        )}
-        {toggle && (
-          <ToggleSwitch
-            component={toggle}
-            checked={toggleSwitch}
-            onChange={onToggleChange}
-          />
-        )}
+      <div className="hardware-tabs" role="tablist" aria-label="Hardware controls">
+        <button type="button" role="tab" aria-selected={activeTab === "inputs"} onClick={() => setActiveTab("inputs")}>
+          <Gauge size={16} aria-hidden="true" />
+          <span>Inputs<small>{inputSummary || "No inputs"}</small></span>
+        </button>
+        <button type="button" role="tab" aria-selected={activeTab === "motion"} onClick={() => setActiveTab("motion")}>
+          <Smartphone size={16} aria-hidden="true" />
+          <span>Motion<small>{motionSummary}</small></span>
+        </button>
       </div>
-      <AccelerometerPanel
-        reading={accelerometer}
-        dataConnected={accelerometerConnected}
-        onInput={onAccelerometerChange}
-      />
+
+      {activeTab === "inputs" && (
+        <div className="hardware-tab-panel input-grid" role="tabpanel" aria-label="Inputs">
+          {pots.map((pot) => (
+            <Potentiometer
+              key={pot.id}
+              component={pot}
+              value={Number(componentInputs[pot.id] ?? pot.defaultValue)}
+              onChange={(value) => onInputChange(pot.id, value)}
+              onConfigure={onConfigure}
+            />
+          ))}
+          {sensors.map((sensor) => (
+            <Sensor
+              key={sensor.id}
+              component={sensor}
+              value={Number(componentInputs[sensor.id] ?? sensor.defaultValue)}
+              onChange={(value) => onInputChange(sensor.id, value)}
+              onConfigure={onConfigure}
+            />
+          ))}
+          {toggles.map((toggle) => (
+            <ToggleSwitch
+              key={toggle.id}
+              component={toggle}
+              checked={Boolean(componentInputs[toggle.id])}
+              onChange={(value) => onInputChange(toggle.id, value)}
+              onConfigure={onConfigure}
+            />
+          ))}
+        </div>
+      )}
+
+      {activeTab === "motion" && (
+        <div className="hardware-tab-panel motion-panel" role="tabpanel" aria-label="Motion">
+          <AccelerometerPanel
+            reading={accelerometer}
+            dataConnected={accelerometerConnected}
+            onInput={onAccelerometerChange}
+          />
+        </div>
+      )}
+
     </section>
   );
 }

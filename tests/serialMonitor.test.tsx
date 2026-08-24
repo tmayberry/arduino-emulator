@@ -14,6 +14,8 @@ describe("SerialMonitor", () => {
       />,
     );
 
+    expect(screen.getByText("done")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Serial Monitor/ }));
     expect(screen.getByText(/value=42/)).toHaveTextContent("value=42 done");
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(onClear).toHaveBeenCalledOnce();
@@ -28,6 +30,8 @@ describe("SerialMonitor", () => {
         onSend={() => undefined}
       />,
     );
+    expect(screen.getByText("No serial output")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Serial Monitor/ }));
     expect(
       screen.getByText("Output from Serial.print() will appear here."),
     ).toBeInTheDocument();
@@ -46,6 +50,7 @@ describe("SerialMonitor", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: /Serial Monitor/ }));
     const input = screen.getByRole("textbox", { name: "Serial input" });
     fireEvent.change(input, { target: { value: "123" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
