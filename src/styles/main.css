@@ -1032,6 +1032,13 @@ button:disabled {
   background: #fff;
 }
 
+.input-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
 .control-card {
   min-width: 0;
   padding: 15px;

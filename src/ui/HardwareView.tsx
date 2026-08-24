@@ -95,6 +95,12 @@ export function HardwareView({
   const motionSummary = accelerometerConnected
     ? `${accelerometer.x.toFixed(1)}, ${accelerometer.y.toFixed(1)}, ${accelerometer.z.toFixed(1)} g`
     : "Disconnected";
+  const inputColumns = [[], []] as Array<Array<
+    PotentiometerComponentConfig | SensorComponentConfig | ToggleSwitchComponentConfig
+  >>;
+  [...pots, ...sensors, ...toggles].forEach((component, index) => {
+    inputColumns[index % inputColumns.length].push(component);
+  });
 
   return (
     <section className="workspace-panel hardware-panel" aria-label="Virtual hardware">
@@ -182,32 +188,34 @@ export function HardwareView({
 
       {activeTab === "inputs" && (
         <div className="hardware-tab-panel input-grid" role="tabpanel" aria-label="Inputs">
-          {pots.map((pot) => (
-            <Potentiometer
-              key={pot.id}
-              component={pot}
-              value={Number(componentInputs[pot.id] ?? pot.defaultValue)}
-              onChange={(value) => onInputChange(pot.id, value)}
-              onConfigure={onConfigure}
-            />
-          ))}
-          {sensors.map((sensor) => (
-            <Sensor
-              key={sensor.id}
-              component={sensor}
-              value={Number(componentInputs[sensor.id] ?? sensor.defaultValue)}
-              onChange={(value) => onInputChange(sensor.id, value)}
-              onConfigure={onConfigure}
-            />
-          ))}
-          {toggles.map((toggle) => (
-            <ToggleSwitch
-              key={toggle.id}
-              component={toggle}
-              checked={Boolean(componentInputs[toggle.id])}
-              onChange={(value) => onInputChange(toggle.id, value)}
-              onConfigure={onConfigure}
-            />
+          {inputColumns.map((column, columnIndex) => (
+            <div className="input-column" key={columnIndex}>
+              {column.map((component) => component.type === "potentiometer" ? (
+                <Potentiometer
+                  key={component.id}
+                  component={component}
+                  value={Number(componentInputs[component.id] ?? component.defaultValue)}
+                  onChange={(value) => onInputChange(component.id, value)}
+                  onConfigure={onConfigure}
+                />
+              ) : component.type === "sensor" ? (
+                <Sensor
+                  key={component.id}
+                  component={component}
+                  value={Number(componentInputs[component.id] ?? component.defaultValue)}
+                  onChange={(value) => onInputChange(component.id, value)}
+                  onConfigure={onConfigure}
+                />
+              ) : (
+                <ToggleSwitch
+                  key={component.id}
+                  component={component}
+                  checked={Boolean(componentInputs[component.id])}
+                  onChange={(value) => onInputChange(component.id, value)}
+                  onConfigure={onConfigure}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}
