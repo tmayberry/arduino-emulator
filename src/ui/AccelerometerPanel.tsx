@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { ChevronDown, LoaderCircle, QrCode, Smartphone, Unplug } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type { AccelerometerReading } from "../emulator/workerProtocol";
 import { makePhonePairingUrl } from "../phone/pairing";
-import { startTurnPairing } from "../phone/turnBroker";
+import {
+  publishPairingOffer,
+  startTurnPairing,
+  waitForPairingAnswer,
+} from "../phone/turnBroker";
 import {
   DesktopAccelerometerPeer,
   type PeerStatus,
@@ -41,23 +44,16 @@ export function AccelerometerPanel({
   const [peerStatus, setPeerStatus] = useState<PeerStatus>("idle");
   const [offerUrl, setOfferUrl] = useState("");
   const [pairingOpen, setPairingOpen] = useState(false);
-  const [scanning, setScanning] = useState(false);
   const [accessCode, setAccessCode] = useState("");
   const [authorizing, setAuthorizing] = useState(false);
   const [error, setError] = useState("");
   const peerRef = useRef<DesktopAccelerometerPeer | null>(null);
-  const scannerRef = useRef<IScannerControls | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const pairingAbortRef = useRef<AbortController | null>(null);
   const lastReadingAtRef = useRef(0);
 
-  const stopScanner = () => {
-    scannerRef.current?.stop();
-    scannerRef.current = null;
-    setScanning(false);
-  };
-
   const disconnect = () => {
-    stopScanner();
+    pairingAbortRef.current?.abort();
+    pairingAbortRef.current = null;
     peerRef.current?.close();
     peerRef.current = null;
     setPeerStatus("idle");
@@ -68,7 +64,7 @@ export function AccelerometerPanel({
   };
 
   useEffect(() => () => {
-    scannerRef.current?.stop();
+    pairingAbortRef.current?.abort();
     peerRef.current?.close();
   }, []);
 
@@ -85,46 +81,6 @@ export function AccelerometerPanel({
     return () => window.clearInterval(timer);
   }, [onInput, peerStatus]);
 
-  useEffect(() => {
-    if (!scanning || !videoRef.current) return;
-    let cancelled = false;
-    const reader = new BrowserQRCodeReader();
-    void reader.decodeFromConstraints({
-      video: {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        facingMode: { ideal: "user" },
-      },
-    }, videoRef.current, (result) => {
-      if (!result || cancelled) return;
-      cancelled = true;
-      const answer = result.getText();
-      scannerRef.current?.stop();
-      scannerRef.current = null;
-      setScanning(false);
-      setError("");
-      void peerRef.current?.acceptAnswer(answer).catch((reason: unknown) => {
-        setPeerStatus("failed");
-        setError(reason instanceof Error ? reason.message : "Could not read the phone's answer.");
-      });
-    }).then((controls) => {
-      if (cancelled) controls.stop();
-      else scannerRef.current = controls;
-    }).catch((reason: unknown) => {
-      setScanning(false);
-      setError(
-        reason instanceof Error
-          ? `Camera unavailable: ${reason.message}`
-          : "The laptop camera is unavailable.",
-      );
-    });
-    return () => {
-      cancelled = true;
-      scannerRef.current?.stop();
-      scannerRef.current = null;
-    };
-  }, [scanning]);
-
   const beginPairing = async () => {
     disconnect();
     if (!("RTCPeerConnection" in window)) {
@@ -139,11 +95,15 @@ export function AccelerometerPanel({
   const preparePairing = async () => {
     setError("");
     setAuthorizing(true);
+    const controller = new AbortController();
+    pairingAbortRef.current?.abort();
+    pairingAbortRef.current = controller;
     let pairing;
     try {
-      pairing = await startTurnPairing(accessCode);
+      pairing = await startTurnPairing(accessCode, controller.signal);
     } catch (reason) {
       setAuthorizing(false);
+      if (reason instanceof DOMException && reason.name === "AbortError") return;
       setError(reason instanceof Error ? reason.message : "Could not authorize phone pairing.");
       return;
     }
@@ -166,8 +126,22 @@ export function AccelerometerPanel({
     peerRef.current = peer;
     try {
       const offer = await peer.createOffer();
-      setOfferUrl(makePhonePairingUrl(offer, pairing.grant));
+      await publishPairingOffer(
+        pairing.sessionId,
+        pairing.desktopGrant,
+        offer,
+        controller.signal,
+      );
+      setOfferUrl(makePhonePairingUrl(pairing.sessionId, pairing.phoneGrant));
+      const answer = await waitForPairingAnswer(
+        pairing.sessionId,
+        pairing.desktopGrant,
+        controller.signal,
+      );
+      await peer.acceptAnswer(answer);
+      pairingAbortRef.current = null;
     } catch (reason) {
+      if (reason instanceof DOMException && reason.name === "AbortError") return;
       setPeerStatus("failed");
       setError(reason instanceof Error ? reason.message : "Could not prepare phone pairing.");
     } finally {
@@ -226,12 +200,6 @@ export function AccelerometerPanel({
                 <p className="pairing-error">{error}</p>
                 <button className="primary-action" type="button" onClick={() => void beginPairing()}>Try again</button>
               </>
-            ) : scanning ? (
-              <>
-                <p>Point the laptop camera at the answer QR code on your phone.</p>
-                <video className="qr-video" ref={videoRef} muted playsInline />
-                <button className="secondary-action" type="button" onClick={stopScanner}>Back</button>
-              </>
             ) : peerStatus === "connecting" ? (
               <div className="pairing-connecting" role="status">
                 <LoaderCircle size={32} aria-hidden="true" />
@@ -239,11 +207,9 @@ export function AccelerometerPanel({
               </div>
             ) : offerUrl ? (
               <>
-                <p>Scan this code with your phone camera, enable motion access, then return here.</p>
+                <p>Scan this code with your phone camera and enable motion access. The laptop will connect automatically.</p>
                 <div className="pairing-qr"><QRCodeSVG value={offerUrl} size={244} level="L" marginSize={2} /></div>
-                <button className="primary-action" type="button" onClick={() => setScanning(true)}>
-                  Scan phone answer
-                </button>
+                <p className="pairing-waiting"><LoaderCircle size={16} aria-hidden="true" /> Waiting for phone…</p>
               </>
             ) : authorizing ? (
               <p>Preparing a secure direct connection…</p>

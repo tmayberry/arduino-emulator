@@ -1,26 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, CheckCircle2, Maximize2, Smartphone, X } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { Activity, CheckCircle2, LoaderCircle, Smartphone } from "lucide-react";
 import type { AccelerometerReading } from "../emulator/workerProtocol";
 import { phoneMotionToBoardAcceleration, requestMotionPermission } from "../phone/motion";
-import { joinTurnPairing } from "../phone/turnBroker";
+import { joinTurnPairing, submitPairingAnswer } from "../phone/turnBroker";
 import { PhoneAccelerometerPeer, type PeerStatus } from "../phone/webrtc";
 
 interface PhoneRemoteProps {
-  offerToken: string;
+  sessionId: string;
   pairingGrant: string | null;
 }
 
 const NEUTRAL: AccelerometerReading = { x: 0, y: 0, z: 1 };
 
-export function PhoneRemote({ offerToken, pairingGrant }: PhoneRemoteProps) {
+export function PhoneRemote({ sessionId, pairingGrant }: PhoneRemoteProps) {
   const [status, setStatus] = useState<PeerStatus>("idle");
-  const [answerToken, setAnswerToken] = useState("");
+  const [pairingSubmitted, setPairingSubmitted] = useState(false);
   const [reading, setReading] = useState(NEUTRAL);
   const [error, setError] = useState("");
   const [landscape, setLandscape] = useState(window.innerWidth > window.innerHeight);
   const [hasReading, setHasReading] = useState(false);
-  const [qrExpanded, setQrExpanded] = useState(false);
   const peerRef = useRef<PhoneAccelerometerPeer | null>(null);
   const lastSentAtRef = useRef(0);
 
@@ -33,7 +31,7 @@ export function PhoneRemote({ offerToken, pairingGrant }: PhoneRemoteProps) {
   useEffect(() => () => peerRef.current?.close(), []);
 
   useEffect(() => {
-    if (!answerToken) return;
+    if (!pairingSubmitted) return;
     const handleMotion = (event: DeviceMotionEvent) => {
       const now = performance.now();
       if (now - lastSentAtRef.current < 1000 / 30) return;
@@ -46,7 +44,7 @@ export function PhoneRemote({ offerToken, pairingGrant }: PhoneRemoteProps) {
     };
     window.addEventListener("devicemotion", handleMotion);
     return () => window.removeEventListener("devicemotion", handleMotion);
-  }, [answerToken]);
+  }, [pairingSubmitted]);
 
   const enable = async () => {
     setError("");
@@ -64,11 +62,12 @@ export function PhoneRemote({ offerToken, pairingGrant }: PhoneRemoteProps) {
         return;
       }
       setStatus("gathering");
-      const iceServers = await joinTurnPairing(pairingGrant);
-      const peer = new PhoneAccelerometerPeer(setStatus, iceServers);
+      const pairing = await joinTurnPairing(sessionId, pairingGrant);
+      const peer = new PhoneAccelerometerPeer(setStatus, pairing.iceServers);
       peerRef.current = peer;
-      const answer = await peer.createAnswer(offerToken);
-      setAnswerToken(answer);
+      const answer = await peer.createAnswer(pairing.offerToken);
+      await submitPairingAnswer(sessionId, pairingGrant, answer);
+      setPairingSubmitted(true);
       history.replaceState(null, "", location.href.split("#")[0]);
     } catch (reason) {
       setStatus("failed");
@@ -86,7 +85,7 @@ export function PhoneRemote({ offerToken, pairingGrant }: PhoneRemoteProps) {
       </header>
       <section className="phone-card">
         {landscape && <p className="phone-warning">Rotate your phone to portrait before collecting data.</p>}
-        {!answerToken ? (
+        {!pairingSubmitted ? (
           <>
             <Smartphone size={54} strokeWidth={1.4} aria-hidden="true" />
             <h2>Use this phone as the Arduino</h2>
@@ -98,12 +97,9 @@ export function PhoneRemote({ offerToken, pairingGrant }: PhoneRemoteProps) {
           </>
         ) : status !== "connected" ? (
           <>
-            <h2>Scan this answer on the laptop</h2>
-            <p>Click “Scan phone answer” on the laptop, then hold this code in front of its camera.</p>
-            <button className="phone-qr-trigger" type="button" onClick={() => setQrExpanded(true)} aria-label="Enlarge answer QR code">
-              <div className="phone-qr"><QRCodeSVG value={answerToken} size={420} level="L" marginSize={4} /></div>
-              <span><Maximize2 size={15} aria-hidden="true" /> Tap to enlarge</span>
-            </button>
+            <LoaderCircle className="phone-connecting-icon" size={44} aria-hidden="true" />
+            <h2>Connecting to laptop</h2>
+            <p>Your pairing answer was sent automatically. Keep this page open while the laptop connects.</p>
             <p className="phone-status">{status === "failed" ? "The secure connection failed. Start pairing again on the laptop." : "Waiting for laptop…"}</p>
           </>
         ) : (
@@ -122,15 +118,6 @@ export function PhoneRemote({ offerToken, pairingGrant }: PhoneRemoteProps) {
           </>
         )}
       </section>
-      {qrExpanded && status !== "connected" && (
-        <div className="phone-qr-fullscreen" role="dialog" aria-modal="true" aria-label="Enlarged answer QR code">
-          <button type="button" onClick={() => setQrExpanded(false)} aria-label="Close enlarged QR code">
-            <X size={24} aria-hidden="true" />
-          </button>
-          <QRCodeSVG value={answerToken} size={720} level="L" marginSize={4} />
-          <p>Hold the phone steady in front of the laptop camera.</p>
-        </div>
-      )}
     </main>
   );
 }

@@ -1,13 +1,25 @@
 interface StartPairingResponse {
+  sessionId: string;
+  desktopGrant: string;
+  phoneGrant: string;
   iceServers: RTCIceServer[];
-  grant: string;
+}
+
+interface JoinPairingResponse {
+  offerToken: string;
+  iceServers: RTCIceServer[];
 }
 
 const DEFAULT_BROKER_URL = "https://arduino-turn-auth.arduino-emulator.workers.dev";
 const configuredUrl = import.meta.env.VITE_TURN_BROKER_URL?.trim() || DEFAULT_BROKER_URL;
+const POLL_INTERVAL_MS = 1_000;
 
 function brokerEndpoint(path: string): string {
   return `${configuredUrl.replace(/\/$/u, "")}${path}`;
+}
+
+function sessionEndpoint(sessionId: string, action: string): string {
+  return `/v2/pairing/sessions/${encodeURIComponent(sessionId)}/${action}`;
 }
 
 function isIceServer(value: unknown): value is RTCIceServer {
@@ -26,16 +38,19 @@ function isStartResponse(value: unknown): value is StartPairingResponse {
   return Boolean(
     value &&
       typeof value === "object" &&
-      "grant" in value && typeof value.grant === "string" &&
+      "sessionId" in value && typeof value.sessionId === "string" &&
+      "desktopGrant" in value && typeof value.desktopGrant === "string" &&
+      "phoneGrant" in value && typeof value.phoneGrant === "string" &&
       "iceServers" in value && Array.isArray(value.iceServers) &&
       value.iceServers.length > 0 && value.iceServers.every(isIceServer),
   );
 }
 
-function isJoinResponse(value: unknown): value is Pick<StartPairingResponse, "iceServers"> {
+function isJoinResponse(value: unknown): value is JoinPairingResponse {
   return Boolean(
     value &&
       typeof value === "object" &&
+      "offerToken" in value && typeof value.offerToken === "string" &&
       "iceServers" in value && Array.isArray(value.iceServers) &&
       value.iceServers.length > 0 && value.iceServers.every(isIceServer),
   );
@@ -59,15 +74,21 @@ function requireFirewallFriendlyIceServers(iceServers: RTCIceServer[]): RTCIceSe
   return selected;
 }
 
-async function post(path: string, body: Record<string, string>): Promise<unknown> {
+async function post(
+  path: string,
+  body: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<unknown> {
   let response: Response;
   try {
     response = await fetch(brokerEndpoint(path), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal,
     });
   } catch {
+    if (signal?.aborted) throw new DOMException("Pairing cancelled.", "AbortError");
     throw new Error("Could not reach the phone pairing service. Check the internet connection and try again.");
   }
 
@@ -81,14 +102,79 @@ async function post(path: string, body: Record<string, string>): Promise<unknown
   return data;
 }
 
-export async function startTurnPairing(accessCode: string): Promise<StartPairingResponse> {
-  const data = await post("/v1/pairing/start", { accessCode });
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.reject(new DOMException("Pairing cancelled.", "AbortError"));
+  return new Promise((resolve, reject) => {
+    const handleAbort = () => {
+      window.clearTimeout(timeout);
+      reject(new DOMException("Pairing cancelled.", "AbortError"));
+    };
+    const timeout = window.setTimeout(() => {
+      signal.removeEventListener("abort", handleAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", handleAbort, { once: true });
+  });
+}
+
+export async function startTurnPairing(
+  accessCode: string,
+  signal?: AbortSignal,
+): Promise<StartPairingResponse> {
+  const data = await post("/v2/pairing/start", { accessCode }, signal);
   if (!isStartResponse(data)) throw new Error("The phone pairing service returned an invalid response.");
   return { ...data, iceServers: requireFirewallFriendlyIceServers(data.iceServers) };
 }
 
-export async function joinTurnPairing(grant: string): Promise<RTCIceServer[]> {
-  const data = await post("/v1/pairing/join", { grant });
+export async function publishPairingOffer(
+  sessionId: string,
+  grant: string,
+  offerToken: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await post(sessionEndpoint(sessionId, "offer"), { grant, offerToken }, signal);
+}
+
+export async function joinTurnPairing(
+  sessionId: string,
+  grant: string,
+  signal?: AbortSignal,
+): Promise<JoinPairingResponse> {
+  const data = await post(sessionEndpoint(sessionId, "join"), { grant }, signal);
   if (!isJoinResponse(data)) throw new Error("The phone pairing service returned an invalid response.");
-  return requireFirewallFriendlyIceServers(data.iceServers);
+  return { ...data, iceServers: requireFirewallFriendlyIceServers(data.iceServers) };
+}
+
+export async function submitPairingAnswer(
+  sessionId: string,
+  grant: string,
+  answerToken: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await post(sessionEndpoint(sessionId, "answer"), { grant, answerToken }, signal);
+}
+
+export async function waitForPairingAnswer(
+  sessionId: string,
+  grant: string,
+  signal: AbortSignal,
+): Promise<string> {
+  while (!signal.aborted) {
+    const data = await post(sessionEndpoint(sessionId, "poll"), { grant }, signal);
+    if (data && typeof data === "object" && "status" in data) {
+      if (data.status === "ready" && "answerToken" in data && typeof data.answerToken === "string") {
+        return data.answerToken;
+      }
+      if (data.status === "expired") {
+        throw new Error("This pairing session expired. Start pairing again.");
+      }
+      if (data.status !== "pending") {
+        throw new Error("The phone pairing service returned an invalid response.");
+      }
+    } else {
+      throw new Error("The phone pairing service returned an invalid response.");
+    }
+    await delay(POLL_INTERVAL_MS, signal);
+  }
+  throw new DOMException("Pairing cancelled.", "AbortError");
 }

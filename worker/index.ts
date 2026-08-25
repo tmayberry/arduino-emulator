@@ -1,11 +1,16 @@
+import { DurableObject } from "cloudflare:workers";
+
 const TURN_API_BASE_URL = "https://rtc.live.cloudflare.com/v1/turn/keys";
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
-const MAX_REQUEST_BYTES = 4_096;
+const MAX_REQUEST_BYTES = 32_768;
+const MAX_DESCRIPTION_TOKEN_LENGTH = 24_000;
 
 interface GrantPayload {
   version: 1;
   expiresAt: number;
   nonce: string;
+  sessionId: string;
+  role: "desktop" | "phone";
 }
 
 interface TurnIceServer {
@@ -112,12 +117,18 @@ async function signingKey(secret: string): Promise<CryptoKey> {
   );
 }
 
-async function createGrant(env: Env): Promise<string> {
-  const ttl = Math.min(Math.max(Number(env.PAIR_GRANT_TTL_SECONDS), 60), 900);
+async function createGrant(
+  env: Env,
+  sessionId: string,
+  role: GrantPayload["role"],
+  expiresAt: number,
+): Promise<string> {
   const payload: GrantPayload = {
     version: 1,
-    expiresAt: Math.floor(Date.now() / 1000) + ttl,
+    expiresAt,
     nonce: crypto.randomUUID(),
+    sessionId,
+    role,
   };
   const encodedPayload = toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
   const signature = await crypto.subtle.sign(
@@ -128,7 +139,12 @@ async function createGrant(env: Env): Promise<string> {
   return `${encodedPayload}.${toBase64Url(new Uint8Array(signature))}`;
 }
 
-async function verifyGrant(grant: string, env: Env): Promise<boolean> {
+async function verifyGrant(
+  grant: string,
+  env: Env,
+  sessionId: string,
+  role: GrantPayload["role"],
+): Promise<boolean> {
   const parts = grant.split(".");
   if (parts.length !== 2) return false;
   try {
@@ -146,11 +162,120 @@ async function verifyGrant(grant: string, env: Env): Promise<boolean> {
         "version" in payload && payload.version === 1 &&
         "expiresAt" in payload && typeof payload.expiresAt === "number" &&
         payload.expiresAt >= Math.floor(Date.now() / 1000) &&
-        "nonce" in payload && typeof payload.nonce === "string",
+        "nonce" in payload && typeof payload.nonce === "string" &&
+        "sessionId" in payload && payload.sessionId === sessionId &&
+        "role" in payload && payload.role === role,
     );
   } catch {
     return false;
   }
+}
+
+interface SessionRow extends Record<string, SqlStorageValue> {
+  expires_at: number;
+  offer_token: string | null;
+  answer_token: string | null;
+}
+
+type SessionAnswer =
+  | { status: "pending" }
+  | { status: "ready"; answerToken: string }
+  | { status: "expired" };
+
+export class PairingSession extends DurableObject<Env> {
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.ctx.blockConcurrencyWhile(async () => {
+      this.ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS pairing_session (
+          singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+          expires_at INTEGER NOT NULL,
+          offer_token TEXT,
+          answer_token TEXT
+        )
+      `);
+    });
+  }
+
+  async initialize(expiresAt: number): Promise<void> {
+    this.ctx.storage.sql.exec(
+      `INSERT INTO pairing_session (singleton, expires_at)
+       VALUES (1, ?)
+       ON CONFLICT(singleton) DO NOTHING`,
+      expiresAt,
+    );
+    await this.ctx.storage.setAlarm(expiresAt);
+  }
+
+  async storeOffer(offerToken: string): Promise<boolean> {
+    const result = this.ctx.storage.sql.exec(
+      `UPDATE pairing_session
+       SET offer_token = ?
+       WHERE singleton = 1 AND expires_at >= ? AND answer_token IS NULL`,
+      offerToken,
+      Date.now(),
+    );
+    return result.rowsWritten === 1;
+  }
+
+  async getOffer(): Promise<string | null> {
+    const rows = this.ctx.storage.sql.exec<SessionRow>(
+      `SELECT expires_at, offer_token, answer_token
+       FROM pairing_session WHERE singleton = 1 AND expires_at >= ?`,
+      Date.now(),
+    ).toArray();
+    return rows[0]?.offer_token ?? null;
+  }
+
+  async storeAnswer(answerToken: string): Promise<boolean> {
+    const result = this.ctx.storage.sql.exec(
+      `UPDATE pairing_session
+       SET answer_token = ?
+       WHERE singleton = 1 AND expires_at >= ? AND offer_token IS NOT NULL
+         AND (answer_token IS NULL OR answer_token = ?)`,
+      answerToken,
+      Date.now(),
+      answerToken,
+    );
+    return result.rowsWritten === 1;
+  }
+
+  async getAnswer(): Promise<SessionAnswer> {
+    const rows = this.ctx.storage.sql.exec<SessionRow>(
+      `SELECT expires_at, offer_token, answer_token
+       FROM pairing_session WHERE singleton = 1`,
+    ).toArray();
+    const session = rows[0];
+    if (!session || session.expires_at < Date.now()) return { status: "expired" };
+    return session.answer_token
+      ? { status: "ready", answerToken: session.answer_token }
+      : { status: "pending" };
+  }
+
+  async alarm(): Promise<void> {
+    await this.ctx.storage.deleteAll();
+  }
+}
+
+function validSessionId(value: unknown): value is string {
+  return typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
+}
+
+function validDescriptionToken(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= MAX_DESCRIPTION_TOKEN_LENGTH;
+}
+
+function sessionRoute(path: string): { sessionId: string; action: string } | null {
+  const match = /^\/v2\/pairing\/sessions\/([^/]+)\/(offer|join|answer|poll)$/u.exec(path);
+  if (!match) return null;
+  let sessionId: string;
+  try {
+    sessionId = decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+  return validSessionId(sessionId) ? { sessionId, action: match[2] } : null;
 }
 
 function isTurnApiResponse(value: unknown): value is TurnApiResponse {
@@ -214,27 +339,62 @@ async function handlePost(
     return jsonResponse({ error: "Invalid request body." }, 400, headers);
   }
 
-  if (path === "/v1/pairing/start") {
+  if (path === "/v2/pairing/start") {
     const accessCode = typeof body.accessCode === "string" ? body.accessCode : "";
     if (!(await secretMatches(accessCode, env.COURSE_ACCESS_CODE))) {
       return jsonResponse({ error: "The course access code is incorrect." }, 401, headers);
     }
-    const [iceServers, grant] = await Promise.all([
+    const sessionId = crypto.randomUUID();
+    const ttl = Math.min(Math.max(Number(env.PAIR_GRANT_TTL_SECONDS), 60), 900);
+    const expiresAt = Math.floor(Date.now() / 1000) + ttl;
+    const session = env.PAIRING_SESSIONS.getByName(sessionId);
+    const [iceServers, desktopGrant, phoneGrant] = await Promise.all([
       generateIceServers(env),
-      createGrant(env),
+      createGrant(env, sessionId, "desktop", expiresAt),
+      createGrant(env, sessionId, "phone", expiresAt),
     ]);
-    return jsonResponse({ iceServers, grant }, 201, headers);
+    await session.initialize(expiresAt * 1000);
+    return jsonResponse({ sessionId, desktopGrant, phoneGrant, iceServers }, 201, headers);
   }
 
-  if (path === "/v1/pairing/join") {
-    const grant = typeof body.grant === "string" ? body.grant : "";
-    if (!(await verifyGrant(grant, env))) {
-      return jsonResponse({ error: "This pairing code has expired. Start again on the laptop." }, 401, headers);
+  const route = sessionRoute(path);
+  if (!route) return jsonResponse({ error: "Not found." }, 404, headers);
+  const grant = typeof body.grant === "string" ? body.grant : "";
+  const role = route.action === "join" || route.action === "answer" ? "phone" : "desktop";
+  if (!(await verifyGrant(grant, env, route.sessionId, role))) {
+    return jsonResponse({ error: "This pairing session has expired or is not authorized." }, 401, headers);
+  }
+  const session = env.PAIRING_SESSIONS.getByName(route.sessionId);
+
+  if (route.action === "offer") {
+    if (!validDescriptionToken(body.offerToken)) {
+      return jsonResponse({ error: "Invalid pairing offer." }, 400, headers);
     }
-    return jsonResponse({ iceServers: await generateIceServers(env) }, 201, headers);
+    const stored = await session.storeOffer(body.offerToken);
+    return stored
+      ? jsonResponse({ status: "ready" }, 201, headers)
+      : jsonResponse({ error: "This pairing session is no longer available." }, 409, headers);
   }
 
-  return jsonResponse({ error: "Not found." }, 404, headers);
+  if (route.action === "join") {
+    const offerToken = await session.getOffer();
+    if (!offerToken) {
+      return jsonResponse({ error: "The laptop has not finished preparing this pairing session." }, 409, headers);
+    }
+    return jsonResponse({ offerToken, iceServers: await generateIceServers(env) }, 200, headers);
+  }
+
+  if (route.action === "answer") {
+    if (!validDescriptionToken(body.answerToken)) {
+      return jsonResponse({ error: "Invalid pairing answer." }, 400, headers);
+    }
+    const stored = await session.storeAnswer(body.answerToken);
+    return stored
+      ? jsonResponse({ status: "received" }, 201, headers)
+      : jsonResponse({ error: "This pairing session is no longer available." }, 409, headers);
+  }
+
+  return jsonResponse(await session.getAnswer(), 200, headers);
 }
 
 export default {

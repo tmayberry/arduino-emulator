@@ -16,7 +16,7 @@ A general-purpose, completely client-side Arduino programming emulator for the c
 - Built-in yellow LED (`LED_BUILTIN`) on D13, external green LED on D4, external red LED on D6, A7 potentiometer, and D2 toggle switch
 - Persistent board setup editor for renaming and repinning external devices and adding switches, potentiometers, or ranged analog sensors with physical units
 - Arduino BMI270 accelerometer compatibility with `IMU.begin()`, `IMU.accelerationAvailable()`, and `IMU.readAcceleration(x, y, z)`
-- Direct phone accelerometer input over WebRTC using serverless two-QR pairing
+- Direct phone accelerometer input over WebRTC using one-scan serverless pairing
 - Live interactive 3D acceleration vector, magnitude, and Lab 2 ±1.5 g threshold guides
 - Clickable onboard reset button that resets the current virtual board while preserving custom setup, plus a separate Reset all control
 - Hard-stop worker termination and full hardware reset
@@ -68,11 +68,11 @@ For GitHub Pages, configure Pages to use GitHub Actions, then push to the defaul
 
 ### Phone accelerometer pairing
 
-The phone and laptop both open the HTTPS deployment. Click **Connect phone** on the laptop, scan its QR code with the phone camera, and allow motion access. The phone then displays an optimized answer QR code for the laptop webcam to scan. Tap the answer code to enlarge it when using a low-resolution webcam.
+The phone and laptop both open the HTTPS deployment. Click **Connect phone** on the laptop, scan its QR code with the phone camera, and allow motion access. The phone sends its pairing answer through the broker and the laptop connects automatically; the laptop does not need a camera.
 
-The WebRTC configuration uses Cloudflare TURN as a fallback when a direct peer-to-peer path is blocked. The laptop asks for a course access code, then a small Cloudflare Worker exchanges it for one-hour ICE credentials. The phone receives a signed, ten-minute pairing grant in the QR fragment, so students enter the course code only on the laptop. The long-lived TURN token and course code never enter the static site or QR code.
+The WebRTC configuration routes phone sessions through Cloudflare TURN. The laptop asks for a course access code, then a Cloudflare Worker exchanges it for temporary ICE credentials and creates a ten-minute Durable Object pairing mailbox. The QR fragment contains only the random session ID and a signed, role-limited phone grant, so students enter the course code only on the laptop. The phone uploads its WebRTC answer to the mailbox over HTTPS while the laptop polls for it. Sensor readings still travel only over the WebRTC data channel. The long-lived TURN token, signing key, and course code never enter the static site or QR code.
 
-Direct host candidates are still permitted, but the only configured server candidate is Cloudflare TURN-over-TLS on TCP 443. Avoiding the UDP, TCP/3478, TCP/80, and TLS/5349 probes keeps non-trickle QR pairing responsive on managed devices where those ports are silently filtered. TURN relays only the WebRTC data channel when the direct candidate cannot connect.
+Pairing uses relay-only ICE with Cloudflare TURN-over-TLS on TCP 443. Avoiding direct host candidates and the UDP, TCP/3478, TCP/80, and TLS/5349 probes keeps non-trickle pairing predictable on managed devices where those paths are silently filtered.
 
 ### TURN broker deployment
 

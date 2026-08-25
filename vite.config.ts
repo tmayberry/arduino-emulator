@@ -8,6 +8,9 @@ export default defineConfig({
     target: "es2022",
   },
   test: {
+    alias: {
+      "cloudflare:workers": "/tests/cloudflareWorkersMock.ts",
+    },
     environment: "jsdom",
     setupFiles: "./tests/setup.ts",
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],

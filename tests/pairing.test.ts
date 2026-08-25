@@ -3,11 +3,11 @@ import { compressSync, strToU8 } from "fflate";
 import {
   decodePairingDescription,
   encodePairingDescription,
-  getPhoneOfferToken,
   getPhonePairingGrant,
+  getPhonePairingSessionId,
   makePhonePairingUrl,
 } from "../src/phone/pairing";
-import { ICE_CONFIGURATION } from "../src/phone/webrtc";
+import { ICE_CONFIGURATION, makeIceConfiguration } from "../src/phone/webrtc";
 
 describe("WebRTC pairing codec", () => {
   it("uses Cloudflare STUN without forcing relay transport", () => {
@@ -15,6 +15,21 @@ describe("WebRTC pairing codec", () => {
       iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
     });
     expect(ICE_CONFIGURATION.iceTransportPolicy).toBeUndefined();
+  });
+
+  it("forces broker-provided TURN traffic through the relay", () => {
+    expect(makeIceConfiguration([{
+      urls: "turns:turn.cloudflare.com:443?transport=tcp",
+      username: "temporary-user",
+      credential: "temporary-password",
+    }])).toEqual({
+      iceServers: [{
+        urls: "turns:turn.cloudflare.com:443?transport=tcp",
+        username: "temporary-user",
+        credential: "temporary-password",
+      }],
+      iceTransportPolicy: "relay",
+    });
   });
 
   it("round-trips compressed session descriptions", () => {
@@ -48,18 +63,18 @@ describe("WebRTC pairing codec", () => {
     expect(decodePairingDescription(legacyToken, "answer")).toEqual(description);
   });
 
-  it("rejects the wrong pairing direction and reads phone hashes", () => {
+  it("rejects the wrong pairing direction and reads pairing-session hashes", () => {
     const token = encodePairingDescription("answer", { type: "answer", sdp: "v=0" });
     expect(() => decodePairingDescription(token, "offer")).toThrow(/not a compatible/);
-    expect(getPhoneOfferToken(`#phone=${token}`)).toBe(token);
-    expect(getPhoneOfferToken("#unrelated")).toBeNull();
+    expect(getPhonePairingSessionId("#pair=classroom-session")).toBe("classroom-session");
+    expect(getPhonePairingSessionId("#unrelated")).toBeNull();
   });
 
   it("places a short-lived phone grant in the URL fragment", () => {
-    const url = makePhonePairingUrl("offer-token", "payload.signature");
+    const url = makePhonePairingUrl("session-id", "payload.signature");
     const hash = new URL(url).hash;
 
-    expect(getPhoneOfferToken(hash)).toBe("offer-token");
+    expect(getPhonePairingSessionId(hash)).toBe("session-id");
     expect(getPhonePairingGrant(hash)).toBe("payload.signature");
   });
 });

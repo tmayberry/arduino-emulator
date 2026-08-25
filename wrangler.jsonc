@@ -17,6 +17,17 @@
       "PAIR_GRANT_SIGNING_KEY"
     ]
   },
+  "durable_objects": {
+    "bindings": [
+      { "name": "PAIRING_SESSIONS", "class_name": "PairingSession" }
+    ]
+  },
+  "exports": {
+    "PairingSession": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

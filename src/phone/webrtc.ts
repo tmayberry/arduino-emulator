@@ -6,6 +6,17 @@ export const ICE_CONFIGURATION: RTCConfiguration = {
     { urls: "stun:stun.cloudflare.com:3478" },
   ],
 };
+
+export function makeIceConfiguration(iceServers: RTCIceServer[]): RTCConfiguration {
+  const hasTurnRelay = iceServers.some((server) => {
+    const urls = typeof server.urls === "string" ? [server.urls] : server.urls;
+    return urls.some((url) => /^turns?:/iu.test(url));
+  });
+  return {
+    iceServers,
+    iceTransportPolicy: hasTurnRelay ? "relay" : "all",
+  };
+}
 const ICE_GATHERING_TIMEOUT_MS = 20_000;
 const CONNECTION_TIMEOUT_MS = 30_000;
 
@@ -78,7 +89,7 @@ abstract class AccelerometerPeer {
     protected readonly onStatus: (status: PeerStatus) => void,
     iceServers: RTCIceServer[] = ICE_CONFIGURATION.iceServers ?? [],
   ) {
-    this.peer = new RTCPeerConnection({ iceServers });
+    this.peer = new RTCPeerConnection(makeIceConfiguration(iceServers));
     this.peer.addEventListener("connectionstatechange", () => {
       const state = this.peer.connectionState;
       if (state === "connected") {
