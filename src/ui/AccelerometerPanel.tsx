@@ -4,6 +4,7 @@ import { ChevronDown, LoaderCircle, QrCode, Smartphone, Unplug } from "lucide-re
 import { QRCodeSVG } from "qrcode.react";
 import type { AccelerometerReading } from "../emulator/workerProtocol";
 import { makePhonePairingUrl } from "../phone/pairing";
+import { startTurnPairing } from "../phone/turnBroker";
 import {
   DesktopAccelerometerPeer,
   type PeerStatus,
@@ -41,6 +42,8 @@ export function AccelerometerPanel({
   const [offerUrl, setOfferUrl] = useState("");
   const [pairingOpen, setPairingOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
+  const [authorizing, setAuthorizing] = useState(false);
   const [error, setError] = useState("");
   const peerRef = useRef<DesktopAccelerometerPeer | null>(null);
   const scannerRef = useRef<IScannerControls | null>(null);
@@ -131,27 +134,44 @@ export function AccelerometerPanel({
     }
     setPairingOpen(true);
     setError("");
+  };
+
+  const preparePairing = async () => {
+    setError("");
+    setAuthorizing(true);
+    let pairing;
+    try {
+      pairing = await startTurnPairing(accessCode);
+    } catch (reason) {
+      setAuthorizing(false);
+      setError(reason instanceof Error ? reason.message : "Could not authorize phone pairing.");
+      return;
+    }
+    setAccessCode("");
     const peer = new DesktopAccelerometerPeer(
       (status) => {
         setPeerStatus(status);
         if (status === "connected") {
           setPairingOpen(false);
         } else if (status === "failed") {
-          setError((current) => current || "The direct connection could not be established. Start pairing again.");
+          setError((current) => current || "The secure connection could not be established. Start pairing again.");
         }
       },
       (nextReading, receivedAtMs) => {
         lastReadingAtRef.current = receivedAtMs;
         onInput(nextReading, true, receivedAtMs);
       },
+      pairing.iceServers,
     );
     peerRef.current = peer;
     try {
       const offer = await peer.createOffer();
-      setOfferUrl(makePhonePairingUrl(offer));
+      setOfferUrl(makePhonePairingUrl(offer, pairing.grant));
     } catch (reason) {
       setPeerStatus("failed");
       setError(reason instanceof Error ? reason.message : "Could not prepare phone pairing.");
+    } finally {
+      setAuthorizing(false);
     }
   };
 
@@ -204,7 +224,7 @@ export function AccelerometerPanel({
             {error ? (
               <>
                 <p className="pairing-error">{error}</p>
-                <button className="primary-action" type="button" onClick={() => void beginPairing()}>Retry</button>
+                <button className="primary-action" type="button" onClick={() => void beginPairing()}>Try again</button>
               </>
             ) : scanning ? (
               <>
@@ -215,7 +235,7 @@ export function AccelerometerPanel({
             ) : peerStatus === "connecting" ? (
               <div className="pairing-connecting" role="status">
                 <LoaderCircle size={32} aria-hidden="true" />
-                <p>Answer received. Establishing the direct connection…</p>
+                <p>Answer received. Establishing the secure connection…</p>
               </div>
             ) : offerUrl ? (
               <>
@@ -225,8 +245,26 @@ export function AccelerometerPanel({
                   Scan phone answer
                 </button>
               </>
-            ) : (
+            ) : authorizing ? (
               <p>Preparing a secure direct connection…</p>
+            ) : (
+              <form className="pairing-access-form" onSubmit={(event) => {
+                event.preventDefault();
+                void preparePairing();
+              }}>
+                <p>Enter the course access code to create a private, reliable phone connection.</p>
+                <label htmlFor="pairing-access-code">Course access code</label>
+                <input
+                  id="pairing-access-code"
+                  type="password"
+                  autoComplete="current-password"
+                  value={accessCode}
+                  onChange={(event) => setAccessCode(event.target.value)}
+                  required
+                  autoFocus
+                />
+                <button className="primary-action" type="submit">Prepare pairing</button>
+              </form>
             )}
           </section>
         </div>

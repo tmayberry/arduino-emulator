@@ -4,6 +4,8 @@ import {
   decodePairingDescription,
   encodePairingDescription,
   getPhoneOfferToken,
+  getPhonePairingGrant,
+  makePhonePairingUrl,
 } from "../src/phone/pairing";
 import { ICE_CONFIGURATION } from "../src/phone/webrtc";
 
@@ -51,5 +53,13 @@ describe("WebRTC pairing codec", () => {
     expect(() => decodePairingDescription(token, "offer")).toThrow(/not a compatible/);
     expect(getPhoneOfferToken(`#phone=${token}`)).toBe(token);
     expect(getPhoneOfferToken("#unrelated")).toBeNull();
+  });
+
+  it("places a short-lived phone grant in the URL fragment", () => {
+    const url = makePhonePairingUrl("offer-token", "payload.signature");
+    const hash = new URL(url).hash;
+
+    expect(getPhoneOfferToken(hash)).toBe("offer-token");
+    expect(getPhonePairingGrant(hash)).toBe("payload.signature");
   });
 });

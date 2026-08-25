@@ -70,7 +70,47 @@ For GitHub Pages, configure Pages to use GitHub Actions, then push to the defaul
 
 The phone and laptop both open the HTTPS deployment. Click **Connect phone** on the laptop, scan its QR code with the phone camera, and allow motion access. The phone then displays an optimized answer QR code for the laptop webcam to scan. Tap the answer code to enlarge it when using a low-resolution webcam.
 
-The WebRTC configuration uses Cloudflare's free STUN service to discover direct peer-to-peer paths across NAT. STUN does not relay or receive the accelerometer stream; sensor data still travels directly between the phone and laptop. Networks that isolate wireless clients or block peer-to-peer traffic may still prevent pairing, so connect the laptop to a phone hotspot as a fallback. A TURN relay can be added later in `src/phone/webrtc.ts` without changing the emulator or phone sensor protocol.
+The WebRTC configuration uses Cloudflare TURN as a fallback when a direct peer-to-peer path is blocked. The laptop asks for a course access code, then a small Cloudflare Worker exchanges it for one-hour ICE credentials. The phone receives a signed, ten-minute pairing grant in the QR fragment, so students enter the course code only on the laptop. The long-lived TURN token and course code never enter the static site or QR code.
+
+Direct candidates are still preferred; TURN relays only the WebRTC data channel when the network requires it. Cloudflare filters and university endpoint controls can therefore block direct traffic without breaking pairing, provided HTTPS and TURN-over-TLS on port 443 are available.
+
+### TURN broker deployment
+
+The broker is configured by [`wrangler.jsonc`](wrangler.jsonc) and implemented in [`worker/index.ts`](worker/index.ts). Before its first deployment:
+
+1. In Cloudflare, create a TURN key and retain its **TURN Token ID** and **API token**.
+2. Register a `workers.dev` subdomain under **Workers & Pages → Account details → workers.dev subdomain**.
+3. Deploy the Worker with the four required secrets. For an existing Worker, set them interactively so values do not enter shell history:
+
+   ```bash
+   npx wrangler secret put TURN_KEY_ID
+   npx wrangler secret put TURN_API_TOKEN
+   npx wrangler secret put COURSE_ACCESS_CODE
+   npx wrangler secret put PAIR_GRANT_SIGNING_KEY
+   ```
+
+   Use a random value of at least 32 bytes for `PAIR_GRANT_SIGNING_KEY`. On the first deployment, Wrangler requires all four values together via an ignored secrets file:
+
+   ```bash
+   npx wrangler deploy --secrets-file .env.production
+   ```
+
+   The file uses `NAME=value` lines and is covered by this repository's `.env*` ignore rule. Delete it after deployment or keep it only in an appropriately protected password store.
+4. The checked-in default broker URL is `https://arduino-turn-auth.arduino-emulator.workers.dev`. To target another Worker, set the optional GitHub Actions repository variable `VITE_TURN_BROKER_URL`, or export it for a local or USNA build:
+
+   ```bash
+   VITE_TURN_BROKER_URL=https://arduino-turn-auth.<subdomain>.workers.dev npm run build
+   ```
+
+The Worker accepts browser requests only from the origins listed in `ALLOWED_ORIGINS`. Update that non-secret setting when adding another deployment domain, regenerate bindings with `npm run worker:types`, and redeploy.
+
+Worker validation commands are:
+
+```bash
+npm run worker:types
+npm run worker:check
+npx wrangler deploy --dry-run
+```
 
 ## Architecture
 

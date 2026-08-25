@@ -3,15 +3,17 @@ import { Activity, CheckCircle2, Maximize2, Smartphone, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type { AccelerometerReading } from "../emulator/workerProtocol";
 import { phoneMotionToBoardAcceleration, requestMotionPermission } from "../phone/motion";
+import { joinTurnPairing } from "../phone/turnBroker";
 import { PhoneAccelerometerPeer, type PeerStatus } from "../phone/webrtc";
 
 interface PhoneRemoteProps {
   offerToken: string;
+  pairingGrant: string | null;
 }
 
 const NEUTRAL: AccelerometerReading = { x: 0, y: 0, z: 1 };
 
-export function PhoneRemote({ offerToken }: PhoneRemoteProps) {
+export function PhoneRemote({ offerToken, pairingGrant }: PhoneRemoteProps) {
   const [status, setStatus] = useState<PeerStatus>("idle");
   const [answerToken, setAnswerToken] = useState("");
   const [reading, setReading] = useState(NEUTRAL);
@@ -53,11 +55,17 @@ export function PhoneRemote({ offerToken }: PhoneRemoteProps) {
       return;
     }
     try {
+      if (!pairingGrant) {
+        setError("This pairing code is from an older version of the emulator. Start pairing again on the laptop.");
+        return;
+      }
       if (!(await requestMotionPermission())) {
         setError("Motion access was denied. Allow Motion & Orientation access and try again.");
         return;
       }
-      const peer = new PhoneAccelerometerPeer(setStatus);
+      setStatus("gathering");
+      const iceServers = await joinTurnPairing(pairingGrant);
+      const peer = new PhoneAccelerometerPeer(setStatus, iceServers);
       peerRef.current = peer;
       const answer = await peer.createAnswer(offerToken);
       setAnswerToken(answer);
@@ -96,7 +104,7 @@ export function PhoneRemote({ offerToken }: PhoneRemoteProps) {
               <div className="phone-qr"><QRCodeSVG value={answerToken} size={420} level="L" marginSize={4} /></div>
               <span><Maximize2 size={15} aria-hidden="true" /> Tap to enlarge</span>
             </button>
-            <p className="phone-status">{status === "failed" ? "The direct connection failed. Start pairing again on the laptop." : "Waiting for laptop…"}</p>
+            <p className="phone-status">{status === "failed" ? "The secure connection failed. Start pairing again on the laptop." : "Waiting for laptop…"}</p>
           </>
         ) : (
           <>

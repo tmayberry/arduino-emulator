@@ -1516,6 +1516,42 @@ details[open] > summary .collapse-chevron {
   line-height: 1.55;
 }
 
+.pairing-access-form {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.pairing-access-form p {
+  margin-bottom: 2px;
+  text-align: center;
+}
+
+.pairing-access-form label {
+  color: #34435f;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.pairing-access-form input {
+  min-height: 42px;
+  padding: 0 12px;
+  color: #17233e;
+  background: #fff;
+  border: 1px solid #cbd3df;
+  border-radius: 9px;
+  font: inherit;
+}
+
+.pairing-access-form input:focus {
+  border-color: #1778f2;
+  outline: 3px solid rgba(23, 120, 242, 0.16);
+}
+
+.pairing-access-form .primary-action {
+  margin-top: 4px;
+}
+
 .pairing-connecting {
   padding: 18px 0 6px;
   display: grid;

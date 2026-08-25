@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "worker:types": "wrangler types worker/worker-configuration.d.ts",
+    "worker:check": "tsc -p tsconfig.worker.json",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
     "deploy:package": "npm run build && node scripts/package-deployment.mjs",
     "preview": "vite preview",
     "test": "vitest run",
@@ -33,6 +37,7 @@
     "jsdom": "^25.0.1",
     "typescript": "^5.7.2",
     "vite": "^6.4.3",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "wrangler": "^4.125.0"
   }
 }

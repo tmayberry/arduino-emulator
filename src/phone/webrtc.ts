@@ -63,10 +63,14 @@ function isSensorPacket(value: unknown): value is SensorPacket {
 }
 
 abstract class AccelerometerPeer {
-  protected readonly peer = new RTCPeerConnection(ICE_CONFIGURATION);
+  protected readonly peer: RTCPeerConnection;
   private connectionTimer: number | undefined;
 
-  constructor(protected readonly onStatus: (status: PeerStatus) => void) {
+  constructor(
+    protected readonly onStatus: (status: PeerStatus) => void,
+    iceServers: RTCIceServer[] = ICE_CONFIGURATION.iceServers ?? [],
+  ) {
+    this.peer = new RTCPeerConnection({ iceServers });
     this.peer.addEventListener("connectionstatechange", () => {
       const state = this.peer.connectionState;
       if (state === "connected") {
@@ -112,8 +116,9 @@ export class DesktopAccelerometerPeer extends AccelerometerPeer {
   constructor(
     onStatus: (status: PeerStatus) => void,
     onReading: (reading: AccelerometerReading, receivedAtMs: number) => void,
+    iceServers?: RTCIceServer[],
   ) {
-    super(onStatus);
+    super(onStatus, iceServers);
     this.channel = this.peer.createDataChannel("accelerometer-v1", {
       ordered: false,
       maxRetransmits: 0,
@@ -161,8 +166,8 @@ export class PhoneAccelerometerPeer extends AccelerometerPeer {
   private channel: RTCDataChannel | null = null;
   private sequence = 0;
 
-  constructor(onStatus: (status: PeerStatus) => void) {
-    super(onStatus);
+  constructor(onStatus: (status: PeerStatus) => void, iceServers?: RTCIceServer[]) {
+    super(onStatus, iceServers);
     this.peer.addEventListener("datachannel", (event) => {
       this.channel = event.channel;
     });

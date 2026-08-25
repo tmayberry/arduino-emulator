@@ -8,6 +8,7 @@ import {
 } from "fflate";
 
 export const PHONE_HASH_PREFIX = "#phone=";
+const GRANT_PARAMETER = "grant";
 
 interface PairingEnvelope {
   version: 1;
@@ -137,12 +138,19 @@ export function decodePairingDescription(
   return parsed.description as RTCSessionDescriptionInit;
 }
 
-export function makePhonePairingUrl(offerToken: string): string {
-  return `${location.href.split("#")[0]}${PHONE_HASH_PREFIX}${offerToken}`;
+export function makePhonePairingUrl(offerToken: string, grant?: string): string {
+  const grantSuffix = grant ? `&${GRANT_PARAMETER}=${encodeURIComponent(grant)}` : "";
+  return `${location.href.split("#")[0]}${PHONE_HASH_PREFIX}${offerToken}${grantSuffix}`;
 }
 
 export function getPhoneOfferToken(hash = location.hash): string | null {
-  return hash.startsWith(PHONE_HASH_PREFIX)
-    ? hash.slice(PHONE_HASH_PREFIX.length)
-    : null;
+  if (!hash.startsWith(PHONE_HASH_PREFIX)) return null;
+  return hash.slice(PHONE_HASH_PREFIX.length).split("&", 1)[0] || null;
+}
+
+export function getPhonePairingGrant(hash = location.hash): string | null {
+  if (!hash.startsWith(PHONE_HASH_PREFIX)) return null;
+  const separator = hash.indexOf("&");
+  if (separator < 0) return null;
+  return new URLSearchParams(hash.slice(separator + 1)).get(GRANT_PARAMETER);
 }
