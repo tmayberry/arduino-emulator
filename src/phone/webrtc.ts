@@ -1,7 +1,11 @@
 import type { AccelerometerReading } from "../emulator/workerProtocol";
 import { decodePairingDescription, encodePairingDescription } from "./pairing";
 
-export const ICE_CONFIGURATION: RTCConfiguration = { iceServers: [] };
+export const ICE_CONFIGURATION: RTCConfiguration = {
+  iceServers: [
+    { urls: "stun:stun.cloudflare.com:3478" },
+  ],
+};
 const ICE_GATHERING_TIMEOUT_MS = 10_000;
 const CONNECTION_TIMEOUT_MS = 20_000;
 

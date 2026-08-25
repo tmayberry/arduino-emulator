@@ -70,7 +70,7 @@ For GitHub Pages, configure Pages to use GitHub Actions, then push to the defaul
 
 The phone and laptop both open the HTTPS deployment. Click **Connect phone** on the laptop, scan its QR code with the phone camera, and allow motion access. The phone then displays an optimized answer QR code for the laptop webcam to scan. Tap the answer code to enlarge it when using a low-resolution webcam.
 
-The initial WebRTC configuration intentionally has no STUN or TURN servers. It therefore tests direct connectivity on the local Wi-Fi network and does not send sensor data through a relay. Networks that isolate wireless clients may prevent pairing; connect the laptop to a phone hotspot as a fallback. ICE servers can later be added in `src/phone/webrtc.ts` without changing the emulator or phone sensor protocol.
+The WebRTC configuration uses Cloudflare's free STUN service to discover direct peer-to-peer paths across NAT. STUN does not relay or receive the accelerometer stream; sensor data still travels directly between the phone and laptop. Networks that isolate wireless clients or block peer-to-peer traffic may still prevent pairing, so connect the laptop to a phone hotspot as a fallback. A TURN relay can be added later in `src/phone/webrtc.ts` without changing the emulator or phone sensor protocol.
 
 ## Architecture
 

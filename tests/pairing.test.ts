@@ -5,8 +5,16 @@ import {
   encodePairingDescription,
   getPhoneOfferToken,
 } from "../src/phone/pairing";
+import { ICE_CONFIGURATION } from "../src/phone/webrtc";
 
 describe("WebRTC pairing codec", () => {
+  it("uses Cloudflare STUN without forcing relay transport", () => {
+    expect(ICE_CONFIGURATION).toEqual({
+      iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
+    });
+    expect(ICE_CONFIGURATION.iceTransportPolicy).toBeUndefined();
+  });
+
   it("round-trips compressed session descriptions", () => {
     const description: RTCSessionDescriptionInit = {
       type: "offer",
