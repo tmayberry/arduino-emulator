@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, CheckCircle2, Smartphone } from "lucide-react";
+import { Activity, CheckCircle2, Maximize2, Smartphone, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type { AccelerometerReading } from "../emulator/workerProtocol";
 import { phoneMotionToBoardAcceleration, requestMotionPermission } from "../phone/motion";
@@ -18,6 +18,7 @@ export function PhoneRemote({ offerToken }: PhoneRemoteProps) {
   const [error, setError] = useState("");
   const [landscape, setLandscape] = useState(window.innerWidth > window.innerHeight);
   const [hasReading, setHasReading] = useState(false);
+  const [qrExpanded, setQrExpanded] = useState(false);
   const peerRef = useRef<PhoneAccelerometerPeer | null>(null);
   const lastSentAtRef = useRef(0);
 
@@ -91,7 +92,10 @@ export function PhoneRemote({ offerToken }: PhoneRemoteProps) {
           <>
             <h2>Scan this answer on the laptop</h2>
             <p>Click “Scan phone answer” on the laptop, then hold this code in front of its camera.</p>
-            <div className="phone-qr"><QRCodeSVG value={answerToken} size={280} level="L" marginSize={2} /></div>
+            <button className="phone-qr-trigger" type="button" onClick={() => setQrExpanded(true)} aria-label="Enlarge answer QR code">
+              <div className="phone-qr"><QRCodeSVG value={answerToken} size={420} level="L" marginSize={4} /></div>
+              <span><Maximize2 size={15} aria-hidden="true" /> Tap to enlarge</span>
+            </button>
             <p className="phone-status">{status === "failed" ? "The direct connection failed. Start pairing again on the laptop." : "Waiting for laptop…"}</p>
           </>
         ) : (
@@ -110,6 +114,15 @@ export function PhoneRemote({ offerToken }: PhoneRemoteProps) {
           </>
         )}
       </section>
+      {qrExpanded && status !== "connected" && (
+        <div className="phone-qr-fullscreen" role="dialog" aria-modal="true" aria-label="Enlarged answer QR code">
+          <button type="button" onClick={() => setQrExpanded(false)} aria-label="Close enlarged QR code">
+            <X size={24} aria-hidden="true" />
+          </button>
+          <QRCodeSVG value={answerToken} size={720} level="L" marginSize={4} />
+          <p>Hold the phone steady in front of the laptop camera.</p>
+        </div>
+      )}
     </main>
   );
 }

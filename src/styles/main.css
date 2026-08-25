@@ -1549,6 +1549,78 @@ details[open] > summary .collapse-chevron {
   display: block;
 }
 
+.phone-qr-trigger {
+  max-width: 100%;
+  padding: 0;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: #49617f;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.phone-qr-trigger .phone-qr {
+  margin-bottom: 0;
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+.phone-qr-trigger > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.phone-qr-trigger:hover .phone-qr {
+  box-shadow: 0 8px 26px rgba(23, 120, 242, 0.2);
+  transform: translateY(-1px);
+}
+
+.phone-qr-fullscreen {
+  padding: 12px;
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  color: #273651;
+  background: #fff;
+}
+
+.phone-qr-fullscreen > svg {
+  width: min(94vmin, 720px);
+  height: auto;
+  display: block;
+}
+
+.phone-qr-fullscreen > button {
+  width: 44px;
+  height: 44px;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  color: #273651;
+  background: #eef2f7;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.phone-qr-fullscreen > p {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 .pairing-error,
 .phone-error {
   padding: 10px;

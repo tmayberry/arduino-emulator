@@ -86,7 +86,13 @@ export function AccelerometerPanel({
     if (!scanning || !videoRef.current) return;
     let cancelled = false;
     const reader = new BrowserQRCodeReader();
-    void reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
+    void reader.decodeFromConstraints({
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: { ideal: "user" },
+      },
+    }, videoRef.current, (result) => {
       if (!result || cancelled) return;
       const answer = result.getText();
       scannerRef.current?.stop();

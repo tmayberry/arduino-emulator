@@ -68,7 +68,7 @@ For GitHub Pages, configure Pages to use GitHub Actions, then push to the defaul
 
 ### Phone accelerometer pairing
 
-The phone and laptop both open the HTTPS deployment. Click **Connect phone** on the laptop, scan its QR code with the phone camera, and allow motion access. The phone then displays an answer QR code for the laptop webcam to scan.
+The phone and laptop both open the HTTPS deployment. Click **Connect phone** on the laptop, scan its QR code with the phone camera, and allow motion access. The phone then displays an optimized answer QR code for the laptop webcam to scan. Tap the answer code to enlarge it when using a low-resolution webcam.
 
 The initial WebRTC configuration intentionally has no STUN or TURN servers. It therefore tests direct connectivity on the local Wi-Fi network and does not send sensor data through a relay. Networks that isolate wireless clients may prevent pairing; connect the laptop to a phone hotspot as a fallback. ICE servers can later be added in `src/phone/webrtc.ts` without changing the emulator or phone sensor protocol.
 
