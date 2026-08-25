@@ -5,12 +5,20 @@ import {
 } from "../src/phone/motion";
 
 describe("phone accelerometer mapping", () => {
-  it("maps phone axes to the Lab 2 board axes in g", () => {
+  it("reports positive Z when the phone is resting face-up on a desk", () => {
+    expect(phoneMotionToBoardAcceleration({
+      x: 0,
+      y: 0,
+      z: -GRAVITY_METERS_PER_SECOND_SQUARED,
+    })).toEqual({ x: 0, y: 0, z: 1 });
+  });
+
+  it("maps the phone's long edge to board X and short edge to board Y", () => {
     expect(phoneMotionToBoardAcceleration({
       x: GRAVITY_METERS_PER_SECOND_SQUARED,
       y: -GRAVITY_METERS_PER_SECOND_SQUARED * 2,
       z: GRAVITY_METERS_PER_SECOND_SQUARED,
-    })).toEqual({ x: -1, y: 2, z: 1 });
+    })).toEqual({ x: 2, y: -1, z: -1 });
   });
 
   it("clamps readings and rejects unavailable sensor values", () => {
@@ -18,7 +26,7 @@ describe("phone accelerometer mapping", () => {
       x: -100,
       y: 100,
       z: 0,
-    })).toEqual({ x: 4, y: -4, z: 0 });
+    })).toEqual({ x: -4, y: 4, z: 0 });
     expect(phoneMotionToBoardAcceleration({ x: null, y: 0, z: 0 })).toBeNull();
   });
 });

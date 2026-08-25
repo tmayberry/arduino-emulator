@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { hardwareConfig } from "../src/config/defaultHardware";
@@ -77,42 +78,57 @@ describe("HardwareView", () => {
     expect(container.querySelector("details")!).not.toHaveAttribute("open");
   });
 
-  it("shows a sensor's physical value and mapped ADC reading", () => {
+  it("lets a wide-range sensor reach its maximum ADC reading", () => {
+    const onInputChange = vi.fn();
     const config = {
       ...hardwareConfig,
       components: [
         ...hardwareConfig.components,
         {
-          id: "thermometer",
+          id: "pressureSensor",
           type: "sensor" as const,
           origin: "custom" as const,
-          label: "Thermometer",
+          label: "Pressure Sensor",
           pin: "A0" as const,
-          rangeStart: -20,
-          rangeEnd: 120,
-          units: "°C",
-          defaultValue: 50,
+          rangeStart: 0,
+          rangeEnd: 5000,
+          units: "kPa",
+          defaultValue: 2500,
         },
       ],
     };
-    render(
-      <HardwareView
-        config={config}
-        pinOutputs={{}}
-        componentInputs={{ potentiometer: 512, thermometer: 50, toggleSwitch: false }}
-        accelerometer={{ x: 0, y: 0, z: 1 }}
-        accelerometerConnected={false}
-        onInputChange={() => undefined}
-        onAccelerometerChange={() => undefined}
-        onReset={() => undefined}
-        onConfigure={() => undefined}
-      />,
-    );
+    function SensorFixture() {
+      const [sensorValue, setSensorValue] = useState(2500);
+      return (
+        <HardwareView
+          config={config}
+          pinOutputs={{}}
+          componentInputs={{ potentiometer: 512, pressureSensor: sensorValue, toggleSwitch: false }}
+          accelerometer={{ x: 0, y: 0, z: 1 }}
+          accelerometerConnected={false}
+          onInputChange={(componentId, value) => {
+            onInputChange(componentId, value);
+            if (componentId === "pressureSensor") setSensorValue(Number(value));
+          }}
+          onAccelerometerChange={() => undefined}
+          onReset={() => undefined}
+          onConfigure={() => undefined}
+        />
+      );
+    }
+    render(<SensorFixture />);
 
-    expect(screen.getByText("Thermometer")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Thermometer").closest("summary")!);
+    expect(screen.getByText("Pressure Sensor")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Pressure Sensor").closest("summary")!);
     expect(screen.getByText("analogRead()")).toBeInTheDocument();
     expect(screen.getByText("512", { selector: ".sensor-readouts strong" })).toBeInTheDocument();
-    expect(screen.getByRole("slider", { name: "Thermometer value in °C" })).toHaveAttribute("min", "-20");
+    const slider = screen.getByRole("slider", { name: "Pressure Sensor value in kPa" });
+    expect(slider).toHaveAttribute("min", "0");
+    expect(slider).toHaveAttribute("max", "5000");
+    expect(slider).toHaveAttribute("step", "any");
+
+    fireEvent.change(slider, { target: { value: "5000" } });
+    expect(onInputChange).toHaveBeenCalledWith("pressureSensor", 5000);
+    expect(screen.getByText("1023", { selector: ".sensor-readouts strong" })).toBeInTheDocument();
   });
 });

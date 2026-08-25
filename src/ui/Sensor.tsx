@@ -19,7 +19,6 @@ export function Sensor({ component, value, onChange, onConfigure }: SensorProps)
   const adcValue = Math.round(
     ((clamped - component.rangeStart) / (component.rangeEnd - component.rangeStart)) * 1023,
   );
-  const step = (component.rangeEnd - component.rangeStart) / 1023;
 
   return (
     <details className="control-card sensor-card">
@@ -66,7 +65,7 @@ export function Sensor({ component, value, onChange, onConfigure }: SensorProps)
         type="range"
         min={component.rangeStart}
         max={component.rangeEnd}
-        step={step}
+        step="any"
         value={clamped}
         onChange={(event) => onChange(Number(event.currentTarget.value))}
       />
