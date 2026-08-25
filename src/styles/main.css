@@ -1516,6 +1516,27 @@ details[open] > summary .collapse-chevron {
   line-height: 1.55;
 }
 
+.pairing-connecting {
+  padding: 18px 0 6px;
+  display: grid;
+  justify-items: center;
+}
+
+.pairing-connecting > svg {
+  color: #1778f2;
+  animation: pairing-spin 900ms linear infinite;
+}
+
+.pairing-connecting > p {
+  margin-bottom: 0;
+}
+
+@keyframes pairing-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .pairing-close {
   width: 34px;
   height: 34px;

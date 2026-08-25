@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
-import { ChevronDown, QrCode, Smartphone, Unplug } from "lucide-react";
+import { ChevronDown, LoaderCircle, QrCode, Smartphone, Unplug } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type { AccelerometerReading } from "../emulator/workerProtocol";
 import { makePhonePairingUrl } from "../phone/pairing";
@@ -94,6 +94,7 @@ export function AccelerometerPanel({
       },
     }, videoRef.current, (result) => {
       if (!result || cancelled) return;
+      cancelled = true;
       const answer = result.getText();
       scannerRef.current?.stop();
       scannerRef.current = null;
@@ -133,7 +134,11 @@ export function AccelerometerPanel({
     const peer = new DesktopAccelerometerPeer(
       (status) => {
         setPeerStatus(status);
-        if (status === "connected") setPairingOpen(false);
+        if (status === "connected") {
+          setPairingOpen(false);
+        } else if (status === "failed") {
+          setError((current) => current || "The direct connection could not be established. Start pairing again.");
+        }
       },
       (nextReading, receivedAtMs) => {
         lastReadingAtRef.current = receivedAtMs;
@@ -207,6 +212,11 @@ export function AccelerometerPanel({
                 <video className="qr-video" ref={videoRef} muted playsInline />
                 <button className="secondary-action" type="button" onClick={stopScanner}>Back</button>
               </>
+            ) : peerStatus === "connecting" ? (
+              <div className="pairing-connecting" role="status">
+                <LoaderCircle size={32} aria-hidden="true" />
+                <p>Answer received. Establishing the direct connection…</p>
+              </div>
             ) : offerUrl ? (
               <>
                 <p>Scan this code with your phone camera, enable motion access, then return here.</p>

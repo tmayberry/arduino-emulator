@@ -136,6 +136,15 @@ export class DesktopAccelerometerPeer extends AccelerometerPeer {
   }
 
   async acceptAnswer(answerToken: string): Promise<void> {
+    if (
+      this.peer.signalingState === "stable" &&
+      this.peer.remoteDescription?.type === "answer"
+    ) {
+      return;
+    }
+    if (this.peer.signalingState !== "have-local-offer") {
+      throw new Error("This pairing session is no longer waiting for an answer. Start pairing again.");
+    }
     this.onStatus("connecting");
     await this.peer.setRemoteDescription(
       decodePairingDescription(answerToken, "answer"),
