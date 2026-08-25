@@ -72,7 +72,7 @@ The phone and laptop both open the HTTPS deployment. Click **Connect phone** on 
 
 The WebRTC configuration uses Cloudflare TURN as a fallback when a direct peer-to-peer path is blocked. The laptop asks for a course access code, then a small Cloudflare Worker exchanges it for one-hour ICE credentials. The phone receives a signed, ten-minute pairing grant in the QR fragment, so students enter the course code only on the laptop. The long-lived TURN token and course code never enter the static site or QR code.
 
-Direct candidates are still preferred; TURN relays only the WebRTC data channel when the network requires it. Cloudflare filters and university endpoint controls can therefore block direct traffic without breaking pairing, provided HTTPS and TURN-over-TLS on port 443 are available.
+Direct host candidates are still permitted, but the only configured server candidate is Cloudflare TURN-over-TLS on TCP 443. Avoiding the UDP, TCP/3478, TCP/80, and TLS/5349 probes keeps non-trickle QR pairing responsive on managed devices where those ports are silently filtered. TURN relays only the WebRTC data channel when the direct candidate cannot connect.
 
 ### TURN broker deployment
 

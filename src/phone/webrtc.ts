@@ -6,8 +6,8 @@ export const ICE_CONFIGURATION: RTCConfiguration = {
     { urls: "stun:stun.cloudflare.com:3478" },
   ],
 };
-const ICE_GATHERING_TIMEOUT_MS = 10_000;
-const CONNECTION_TIMEOUT_MS = 20_000;
+const ICE_GATHERING_TIMEOUT_MS = 20_000;
+const CONNECTION_TIMEOUT_MS = 30_000;
 
 export type PeerStatus =
   | "idle"
@@ -26,16 +26,24 @@ interface SensorPacket extends AccelerometerReading {
 }
 
 function waitForIceGathering(peer: RTCPeerConnection): Promise<void> {
-  if (peer.iceGatheringState === "complete") return Promise.resolve();
+  const hasRelayCandidate = () => peer.localDescription?.sdp?.includes(" typ relay ") ?? false;
+  const relayUnavailableError = () => new Error(
+    "Could not reach the secure TURN relay on TCP port 443. This device may have a managed WebRTC restriction.",
+  );
+  if (peer.iceGatheringState === "complete") {
+    return hasRelayCandidate() ? Promise.resolve() : Promise.reject(relayUnavailableError());
+  }
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => {
       cleanup();
-      reject(new Error("Timed out while gathering network connection details."));
+      if (hasRelayCandidate()) resolve();
+      else reject(relayUnavailableError());
     }, ICE_GATHERING_TIMEOUT_MS);
     const handleState = () => {
       if (peer.iceGatheringState === "complete") {
         cleanup();
-        resolve();
+        if (hasRelayCandidate()) resolve();
+        else reject(relayUnavailableError());
       }
     };
     const cleanup = () => {

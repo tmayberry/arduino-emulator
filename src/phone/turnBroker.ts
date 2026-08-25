@@ -41,6 +41,24 @@ function isJoinResponse(value: unknown): value is Pick<StartPairingResponse, "ic
   );
 }
 
+export function selectFirewallFriendlyIceServers(iceServers: RTCIceServer[]): RTCIceServer[] {
+  return iceServers.flatMap((server) => {
+    const urls = typeof server.urls === "string" ? [server.urls] : server.urls;
+    const secureUrls = urls.filter((url) =>
+      /^turns:turn\.cloudflare\.com:443(?:\?|$)/iu.test(url),
+    );
+    return secureUrls.length > 0 ? [{ ...server, urls: secureUrls }] : [];
+  });
+}
+
+function requireFirewallFriendlyIceServers(iceServers: RTCIceServer[]): RTCIceServer[] {
+  const selected = selectFirewallFriendlyIceServers(iceServers);
+  if (selected.length === 0) {
+    throw new Error("The pairing service did not provide its secure TCP 443 relay.");
+  }
+  return selected;
+}
+
 async function post(path: string, body: Record<string, string>): Promise<unknown> {
   let response: Response;
   try {
@@ -66,11 +84,11 @@ async function post(path: string, body: Record<string, string>): Promise<unknown
 export async function startTurnPairing(accessCode: string): Promise<StartPairingResponse> {
   const data = await post("/v1/pairing/start", { accessCode });
   if (!isStartResponse(data)) throw new Error("The phone pairing service returned an invalid response.");
-  return data;
+  return { ...data, iceServers: requireFirewallFriendlyIceServers(data.iceServers) };
 }
 
 export async function joinTurnPairing(grant: string): Promise<RTCIceServer[]> {
   const data = await post("/v1/pairing/join", { grant });
   if (!isJoinResponse(data)) throw new Error("The phone pairing service returned an invalid response.");
-  return data.iceServers;
+  return requireFirewallFriendlyIceServers(data.iceServers);
 }
