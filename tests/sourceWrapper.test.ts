@@ -12,6 +12,8 @@ describe("Arduino source wrapper", () => {
       "void setup() {}\nvoid loop() { digitalWrite(4, HIGH); }",
       hardwareConfig,
     );
+    expect(wrapped.code).toContain("#define D0 0");
+    expect(wrapped.code).toContain("#define D13 13");
     expect(wrapped.code).toContain("#define A7 21");
     expect(wrapped.code).toContain("#define min(a,b)");
     expect(wrapped.code).toContain("#define max(a,b)");

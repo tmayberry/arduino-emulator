@@ -79,6 +79,7 @@ export function wrapArduinoSource(source: string, config: HardwareConfig): Wrapp
     "#define min(a,b) ((a)<(b)?(a):(b))",
     "#define max(a,b) ((a)>(b)?(a):(b))",
     "#define constrain(value,low,high) ((value)<(low)?(low):((value)>(high)?(high):(value)))",
+    ...Array.from({ length: 14 }, (_, index) => `#define D${index} ${index}`),
     ...Array.from({ length: 8 }, (_, index) => `#define A${index} ${14 + index}`),
     `#define TEST_LED_PIN ${config.testLedPin}`,
     `#define LED_BUILTIN ${config.builtInLedPin}`,

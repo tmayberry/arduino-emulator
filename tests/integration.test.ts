@@ -48,6 +48,23 @@ void loop() {}`, hardwareConfig);
     });
   });
 
+  it("accepts Arduino digital pin aliases", () => {
+    const engine = new SimulationEngine(hardwareConfig);
+    const wrapped = wrapArduinoSource(`void setup() {
+  pinMode(D6, OUTPUT);
+  digitalWrite(D6, HIGH);
+}
+
+void loop() {}`, hardwareConfig);
+
+    expect(runRestrictedJscpp(
+      wrapped.code,
+      createArduinoInclude(engine, () => undefined),
+    )).toBe(0);
+    expect(engine.state.pins.D6.mode).toBe(1);
+    expect(engine.state.pins.D6.outputValue).toBe(1);
+  });
+
   it("steps a blink loop and produces one-second LED transitions", () => {
     const transitions: Array<{ value: number; time: number }> = [];
     let engine!: SimulationEngine;
