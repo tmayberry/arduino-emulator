@@ -36,7 +36,7 @@ export class SimpleStructCompatibilityError extends Error {
   }
 }
 
-const PRIMITIVE_TYPES = new Set([
+const SUPPORTED_FIELD_TYPES = new Set([
   "bool",
   "char",
   "signed char",
@@ -65,6 +65,7 @@ const PRIMITIVE_TYPES = new Set([
   "unsigned long long int",
   "float",
   "double",
+  "String",
 ]);
 
 function tokenize(source: string): Token[] {
@@ -191,7 +192,7 @@ function parseMemberDeclaration(tokens: Token[]): SimpleStructField[] {
   let typeEnd = 0;
   for (let index = 1; index <= tokens.length; index += 1) {
     if (
-      PRIMITIVE_TYPES.has(
+      SUPPORTED_FIELD_TYPES.has(
         tokens
           .slice(0, index)
           .map((token) => token.value)
@@ -204,7 +205,7 @@ function parseMemberDeclaration(tokens: Token[]): SimpleStructField[] {
 
   if (typeEnd === 0) {
     compatibilityError(
-      "fields must use primitive numeric, character, or boolean types.",
+      "fields must use primitive numeric, character, boolean, or String types.",
       tokens[0],
     );
   }
@@ -339,10 +340,128 @@ function blankRange(source: string, start: number, end: number): string {
   return source.slice(start, end).replace(/[^\r\n]/g, " ");
 }
 
+function newlineCount(value: string): number {
+  return (value.match(/\n/g) ?? []).length;
+}
+
+function defaultInitializer(field: SimpleStructField): string {
+  if (field.type === "String") return '""';
+  if (field.type === "bool") return "false";
+  return "0";
+}
+
+interface AggregateInitializer {
+  closing: number;
+  semicolon: number;
+  expressions: string[];
+}
+
+function parseAggregateInitializer(
+  source: string,
+  tokens: Token[],
+  opening: number,
+): AggregateInitializer {
+  const expressions: string[] = [];
+  let expressionStart = opening + 1;
+  let nesting = 0;
+
+  for (let index = opening + 1; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.value === "(" || token.value === "[" || token.value === "{") {
+      nesting += 1;
+      continue;
+    }
+    if (token.value === ")" || token.value === "]") {
+      nesting -= 1;
+      if (nesting < 0)
+        compatibilityError("malformed aggregate initializer.", token);
+      continue;
+    }
+    if (token.value === "}" && nesting > 0) {
+      nesting -= 1;
+      continue;
+    }
+
+    const atSeparator = token.value === "," && nesting === 0;
+    const atClosing = token.value === "}" && nesting === 0;
+    if (!atSeparator && !atClosing) continue;
+
+    if (expressionStart < index) {
+      expressions.push(
+        source.slice(tokens[expressionStart].start, tokens[index - 1].end),
+      );
+    } else if (atSeparator) {
+      compatibilityError(
+        "aggregate initializer entries cannot be empty.",
+        token,
+      );
+    }
+
+    if (atClosing) {
+      const semicolon = tokens[index + 1];
+      if (semicolon?.value !== ";") {
+        compatibilityError(
+          "declare one initialized struct variable per statement.",
+          semicolon ?? token,
+        );
+      }
+      return { closing: index, semicolon: index + 1, expressions };
+    }
+    expressionStart = index + 1;
+  }
+
+  compatibilityError(
+    "aggregate initializer is missing its closing '}'.",
+    tokens[opening],
+  );
+}
+
+function lowerAggregateInitializer(
+  source: string,
+  tokens: Token[],
+  typeStart: number,
+  variableIndex: number,
+  opening: number,
+  definition: SimpleStructDefinition,
+): { start: number; end: number; text: string; semicolon: number } {
+  const aggregate = parseAggregateInitializer(source, tokens, opening);
+  const variable = tokens[variableIndex];
+
+  if (aggregate.expressions.length > definition.fields.length) {
+    compatibilityError(
+      `struct '${definition.name}' has ${definition.fields.length} fields but the initializer has ${aggregate.expressions.length} values.`,
+      tokens[opening],
+    );
+  }
+  const arrayField = definition.fields.find(
+    (field) => field.dimensions.length > 0,
+  );
+  if (arrayField) {
+    compatibilityError(
+      `aggregate initialization of array field '${arrayField.name}' is not supported.`,
+      tokens[opening],
+    );
+  }
+
+  let text = `${source.slice(tokens[typeStart].start, variable.end)};`;
+  for (let index = 0; index < definition.fields.length; index += 1) {
+    const field = definition.fields[index];
+    const value = aggregate.expressions[index] ?? defaultInitializer(field);
+    text += `${variable.value}.${field.name}=${value};`;
+  }
+
+  const start = tokens[typeStart].start;
+  const end = tokens[aggregate.semicolon].end;
+  const missingNewlines =
+    newlineCount(source.slice(start, end)) - newlineCount(text);
+  text += "\n".repeat(Math.max(0, missingNewlines));
+  return { start, end, text, semicolon: aggregate.semicolon };
+}
+
 export function prepareSimpleStructs(source: string): PreparedSimpleStructs {
   const tokens = tokenize(source);
   const definitions: SimpleStructDefinition[] = [];
-  const replacements: Array<{ start: number; end: number }> = [];
+  const replacements: Array<{ start: number; end: number; text: string }> = [];
   const names = new Set<string>();
   let braceDepth = 0;
 
@@ -423,7 +542,11 @@ export function prepareSimpleStructs(source: string): PreparedSimpleStructs {
         fields: parseStructFields(tokens, index + 2, closing),
       });
       names.add(name);
-      replacements.push({ start: token.start, end: semicolon.end });
+      replacements.push({
+        start: token.start,
+        end: semicolon.end,
+        text: blankRange(source, token.start, semicolon.end),
+      });
       index = closing + 1;
       continue;
     }
@@ -434,28 +557,69 @@ export function prepareSimpleStructs(source: string): PreparedSimpleStructs {
 
   if (definitions.length === 0) return { source };
 
+  const definitionsByName = new Map(
+    definitions.map((definition) => [definition.name, definition]),
+  );
+  const insideDefinition = (token: Token): boolean =>
+    replacements.some(
+      (replacement) =>
+        token.start >= replacement.start && token.end <= replacement.end,
+    );
+  let aggregateBraceDepth = 0;
+
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
+    if (insideDefinition(token)) continue;
+
+    const directDefinition = definitionsByName.get(token.value);
     const directType =
-      names.has(token.value) && tokens[index + 1]?.kind === "identifier";
+      directDefinition && tokens[index + 1]?.kind === "identifier";
+    const taggedDefinition =
+      token.value === "struct"
+        ? definitionsByName.get(tokens[index + 1]?.value)
+        : undefined;
     const taggedType =
-      token.value === "struct" &&
-      names.has(tokens[index + 1]?.value) &&
-      tokens[index + 2]?.kind === "identifier";
+      taggedDefinition && tokens[index + 2]?.kind === "identifier";
     const equals = tokens[index + (taggedType ? 3 : 2)];
     if ((directType || taggedType) && equals?.value === "=") {
-      compatibilityError(
-        "aggregate and copy initialization are not supported.",
-        equals,
+      if (tokens[index + (taggedType ? 4 : 3)]?.value !== "{") {
+        compatibilityError("copy initialization is not supported.", equals);
+      }
+      if (aggregateBraceDepth === 0) {
+        compatibilityError(
+          "aggregate initialization is currently supported only inside functions.",
+          equals,
+        );
+      }
+
+      const lowered = lowerAggregateInitializer(
+        source,
+        tokens,
+        index,
+        index + (taggedType ? 2 : 1),
+        index + (taggedType ? 4 : 3),
+        (taggedDefinition ?? directDefinition)!,
       );
+      replacements.push({
+        start: lowered.start,
+        end: lowered.end,
+        text: lowered.text,
+      });
+      index = lowered.semicolon;
+      continue;
     }
+
+    if (token.value === "{") aggregateBraceDepth += 1;
+    if (token.value === "}")
+      aggregateBraceDepth = Math.max(0, aggregateBraceDepth - 1);
   }
 
+  replacements.sort((left, right) => left.start - right.start);
   let transformed = "";
   let position = 0;
   for (const replacement of replacements) {
     transformed += source.slice(position, replacement.start);
-    transformed += blankRange(source, replacement.start, replacement.end);
+    transformed += replacement.text;
     position = replacement.end;
   }
   transformed += source.slice(position);

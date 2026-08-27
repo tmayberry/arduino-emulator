@@ -95,6 +95,64 @@ void loop() {}`;
     expect(runSketch(source)).toBe("12\n");
   });
 
+  it("supports String fields and positional initialization", () => {
+    const source = `struct WeatherStation {
+  float temperature;
+  int humidity;
+  String location;
+};
+
+void setup() {
+  WeatherStation Wing7 = {99.5, 80, "Room 7228"};
+  Serial.begin(9600);
+  Serial.println(Wing7.location);
+}
+
+void loop() {}`;
+
+    expect(runSketch(source)).toBe("Room 7228\n");
+  });
+
+  it("zero-initializes omitted scalar fields in local aggregates", () => {
+    const source = `struct Reading {
+  int count;
+  String label;
+  bool active;
+};
+
+void setup() {
+  struct Reading reading = {7};
+  Serial.print(reading.count);
+  Serial.print(",");
+  Serial.print(reading.label.length());
+  Serial.print(",");
+  Serial.println(reading.active);
+}
+
+void loop() {}`;
+
+    expect(runSketch(source)).toBe("7,0,0\n");
+  });
+
+  it("preserves lines in multiline aggregate initialization", () => {
+    const source = `struct Reading {
+  int count;
+  String label;
+};
+void setup() {
+  Reading reading = {
+    max(1, 2),
+    "indoor, lab"
+  };
+  Serial.println(reading.label);
+}
+void loop() {}`;
+    const prepared = prepareSimpleStructs(source);
+
+    expect(prepared.source.split("\n")).toHaveLength(source.split("\n").length);
+    expect(runSketch(source)).toBe("indoor, lab\n");
+  });
+
   it("preserves source length and line breaks when removing definitions", () => {
     const source = `struct Reading {
   float x[3];
@@ -139,8 +197,23 @@ void loop() {}`;
     ["forward declarations", "struct Bad;", 1],
     ["inheritance", "struct Bad : Base { int value; };", 1],
     [
-      "aggregate initialization",
+      "global aggregate initialization",
       "struct Bad { int value; };\nBad data = {};",
+      2,
+    ],
+    [
+      "array-field aggregate initialization",
+      "struct Bad { int values[2]; };\nvoid setup() { Bad data = {{1, 2}}; }",
+      2,
+    ],
+    [
+      "too many aggregate values",
+      "struct Bad { int value; };\nvoid setup() { Bad data = {1, 2}; }",
+      2,
+    ],
+    [
+      "copy initialization",
+      "struct Bad { int value; };\nvoid setup() { Bad first; Bad second = first; }",
       2,
     ],
     ["local definitions", "void setup() {\nstruct Bad { int value; };\n}", 2],
