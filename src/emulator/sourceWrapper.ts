@@ -74,6 +74,7 @@ export function hasEmptyLoop(source: string): boolean {
 export function wrapArduinoSource(
   source: string,
   config: HardwareConfig,
+  additionalIncludes: string[] = [],
 ): WrappedSource {
   const prefix = [
     "#define LOW 0",
@@ -92,6 +93,7 @@ export function wrapArduinoSource(
     `#define TEST_LED_PIN ${config.testLedPin}`,
     `#define LED_BUILTIN ${config.builtInLedPin}`,
     '#include "Arduino.h"',
+    ...additionalIncludes.map((name) => `#include "${name}"`),
     "",
   ];
 

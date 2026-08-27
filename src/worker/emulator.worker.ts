@@ -11,6 +11,11 @@ import {
   realTimeWaitMs,
 } from "../emulator/scheduler";
 import { SimulationEngine } from "../emulator/simulationState";
+import {
+  prepareSimpleStructs,
+  SIMPLE_STRUCT_INCLUDE,
+  SimpleStructCompatibilityError,
+} from "../emulator/simpleStructs";
 import { toStudentLine, wrapArduinoSource } from "../emulator/sourceWrapper";
 import type {
   WorkerInputs,
@@ -192,11 +197,19 @@ function start(
 
   engine = new SimulationEngine(config, inputs, (event) => post(event));
   engine.state.running = true;
-  const wrapped = wrapArduinoSource(source, config);
-  currentPrefixLineCount = wrapped.prefixLineCount;
   currentSourceLineCount = source.split("\n").length;
 
   try {
+    const prepared = prepareSimpleStructs(source);
+    const compatibilityIncludes = prepared.include
+      ? [SIMPLE_STRUCT_INCLUDE]
+      : [];
+    const wrapped = wrapArduinoSource(
+      prepared.source,
+      config,
+      compatibilityIncludes,
+    );
+    currentPrefixLineCount = wrapped.prefixLineCount;
     const arduinoInclude = createArduinoInclude(
       engine,
       () => {
@@ -207,11 +220,17 @@ function start(
     const imuInclude = createImuInclude(engine, () => {
       activityVersion += 1;
     });
+    const additionalIncludes = {
+      "Arduino_BMI270_BMM150.h": imuInclude,
+      ...(prepared.include
+        ? { [SIMPLE_STRUCT_INCLUDE]: prepared.include }
+        : {}),
+    };
     const result = runRestrictedJscpp(
       wrapped.code,
       arduinoInclude,
       { debug: true },
-      { "Arduino_BMI270_BMM150.h": imuInclude },
+      additionalIncludes,
     );
     interpreter = result as DebuggerInstance;
     wallStartTime = performance.now();
@@ -219,9 +238,14 @@ function start(
     scheduleSlice(runId);
   } catch (error) {
     console.error("JSCPP startup error", error);
+    if (error instanceof SimpleStructCompatibilityError) {
+      post({ type: "error", message: error.message, line: error.line });
+      stopRun("Unable to start");
+      return;
+    }
     const formatted = formatError(
       error,
-      wrapped.prefixLineCount,
+      currentPrefixLineCount,
       currentSourceLineCount,
     );
     post({ type: "error", ...formatted });

@@ -6,7 +6,7 @@ interface RuntimeValue {
   left?: boolean;
 }
 
-interface JscppRuntime {
+export interface JscppRuntime {
   intTypeLiteral: unknown;
   unsignedintTypeLiteral: unknown;
   longTypeLiteral: unknown;
@@ -17,6 +17,9 @@ interface JscppRuntime {
   voidTypeLiteral: unknown;
   scope: Array<{ variables: Record<string, unknown> }>;
   newClass(name: string, members: unknown[]): unknown;
+  simpleType(type: string): unknown;
+  arrayPointerType(elementType: unknown, size: number): unknown;
+  registerTypedef(type: unknown, name: string): unknown;
   normalPointerType(type: unknown): unknown;
   isPrimitiveType(type: unknown): boolean;
   isTypeEqualTo(left: unknown, right: unknown): boolean;

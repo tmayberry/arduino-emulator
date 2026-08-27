@@ -11,6 +11,7 @@ A general-purpose, completely client-side Arduino programming emulator for the c
 - `Serial.begin`, `Serial.print`, `Serial.println`, `Serial.available`, `Serial.read`, `Serial.peek`, `Serial.parseInt`, `Serial.parseFloat`, `Serial.readString`, `Serial.readStringUntil`, and `Serial.setTimeout`
 - Live, clearable Serial Monitor with an Arduino IDE-style input sender and selectable line endings
 - Arduino-style `String` variables, assignment, concatenation, comparison, `length()`, `charAt()`, and `c_str()`
+- Named plain-data `struct` types with primitive scalar and fixed-size array fields
 - Cooperative, short-slice JSCPP execution in a disposable Web Worker
 - Real-time-paced virtual clock and runaway-loop watchdog
 - Built-in yellow LED (`LED_BUILTIN`) on D13, external green LED on D4, external red LED on D6, A7 potentiometer, and D2 toggle switch
@@ -23,6 +24,8 @@ A general-purpose, completely client-side Arduino programming emulator for the c
 - Student-friendly interpreter error display
 
 The starter sketch is unchanged when hardware is reconfigured, so users should update any literal pin numbers in their code to match their selected setup. `LED_BUILTIN` remains on D13, while `TEST_LED_PIN` follows the configured green LED. Hardware relationships and placement metadata live in [`src/config/defaultHardware.ts`](src/config/defaultHardware.ts).
+
+Struct compatibility is intentionally limited to file-scope named definitions with primitive fields. Struct methods, pointers, references, inheritance, nested or anonymous structs, typedef forms, and member initializers are not supported.
 
 ## Local development
 
