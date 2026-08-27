@@ -99,14 +99,14 @@ describe("hardware setup", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add sensor" }));
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Each sensor needs a start below its end and a unit.",
+      "Each sensor needs a min below its max and a unit.",
     );
     expect(screen.getByRole("button", { name: "Apply setup" })).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText("Sensor 1 range start"), {
+    fireEvent.change(screen.getByLabelText("Sensor 1 range min"), {
       target: { value: "-20" },
     });
-    fireEvent.change(screen.getByLabelText("Sensor 1 range end"), {
+    fireEvent.change(screen.getByLabelText("Sensor 1 range max"), {
       target: { value: "120" },
     });
     fireEvent.change(screen.getByLabelText("Sensor 1 units"), {

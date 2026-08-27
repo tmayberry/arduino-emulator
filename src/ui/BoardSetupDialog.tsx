@@ -320,9 +320,9 @@ export function BoardSetupDialog({
                 {component.type === "sensor" && (
                   <div className="sensor-range-fields">
                     <label>
-                      <span>Start</span>
+                      <span>Min</span>
                       <input
-                        aria-label={`${component.label} range start`}
+                        aria-label={`${component.label} range min`}
                         type="number"
                         step="any"
                         value={
@@ -341,9 +341,9 @@ export function BoardSetupDialog({
                       />
                     </label>
                     <label>
-                      <span>End</span>
+                      <span>Max</span>
                       <input
-                        aria-label={`${component.label} range end`}
+                        aria-label={`${component.label} range max`}
                         type="number"
                         step="any"
                         value={
@@ -412,7 +412,7 @@ export function BoardSetupDialog({
             {hasInvalidLabel
               ? "Every device needs a name."
               : hasInvalidSensor
-                ? "Each sensor needs a start below its end and a unit."
+                ? "Each sensor needs a min below its max and a unit."
                 : "Each device must use a unique pin."}
           </p>
         )}
