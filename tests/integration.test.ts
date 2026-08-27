@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { hardwareConfig } from "../src/config/defaultHardware";
 import { createArduinoInclude } from "../src/emulator/arduinoApi";
 import { runRestrictedJscpp } from "../src/emulator/jscppRuntime";
-import { SimulationEngine, type SimulationEvent } from "../src/emulator/simulationState";
+import {
+  SimulationEngine,
+  type SimulationEvent,
+} from "../src/emulator/simulationState";
 import { wrapArduinoSource } from "../src/emulator/sourceWrapper";
 
 const BLINK_SKETCH = `int red = 6;
@@ -24,12 +27,15 @@ describe("wrapped sketch integration", () => {
     const engine = new SimulationEngine(hardwareConfig, undefined, (event) => {
       transitions.push(event);
     });
-    const wrapped = wrapArduinoSource(`void setup() {
+    const wrapped = wrapArduinoSource(
+      `void setup() {
   pinMode(6, OUTPUT);
   digitalWrite(6, HIGH);
 }
 
-void loop() {}`, hardwareConfig);
+void loop() {}`,
+      hardwareConfig,
+    );
     const debuggerInstance = runRestrictedJscpp(
       wrapped.code,
       createArduinoInclude(engine, () => undefined),
@@ -50,29 +56,37 @@ void loop() {}`, hardwareConfig);
 
   it("accepts Arduino digital pin aliases", () => {
     const engine = new SimulationEngine(hardwareConfig);
-    const wrapped = wrapArduinoSource(`void setup() {
+    const wrapped = wrapArduinoSource(
+      `void setup() {
   pinMode(D6, OUTPUT);
   digitalWrite(D6, HIGH);
 }
 
-void loop() {}`, hardwareConfig);
+void loop() {}`,
+      hardwareConfig,
+    );
 
-    expect(runRestrictedJscpp(
-      wrapped.code,
-      createArduinoInclude(engine, () => undefined),
-    )).toBe(0);
+    expect(
+      runRestrictedJscpp(
+        wrapped.code,
+        createArduinoInclude(engine, () => undefined),
+      ),
+    ).toBe(0);
     expect(engine.state.pins.D6.mode).toBe(1);
     expect(engine.state.pins.D6.outputValue).toBe(1);
   });
 
   it("steps a blink loop and produces one-second LED transitions", () => {
     const transitions: Array<{ value: number; time: number }> = [];
-    let engine!: SimulationEngine;
-    engine = new SimulationEngine(hardwareConfig, undefined, (event: SimulationEvent) => {
-      if (event.type === "pin-change") {
-        transitions.push({ value: event.value, time: engine.millis() });
-      }
-    });
+    const engine = new SimulationEngine(
+      hardwareConfig,
+      undefined,
+      (event: SimulationEvent) => {
+        if (event.type === "pin-change") {
+          transitions.push({ value: event.value, time: engine.millis() });
+        }
+      },
+    );
     const wrapped = wrapArduinoSource(BLINK_SKETCH, hardwareConfig);
     const debuggerInstance = runRestrictedJscpp(
       wrapped.code,
@@ -93,18 +107,23 @@ void loop() {}`, hardwareConfig);
 
   it("supports Arduino min, max, and constrain helpers for sketches", () => {
     const engine = new SimulationEngine(hardwareConfig);
-    const wrapped = wrapArduinoSource(`
+    const wrapped = wrapArduinoSource(
+      `
 void setup() {
   float low = min(2.5, 3.5);
   int result = (int)low + max(2, 4) + constrain(9, 0, 5);
   digitalWrite(6, result == 11);
 }
-void loop() {}`, hardwareConfig);
+void loop() {}`,
+      hardwareConfig,
+    );
 
-    expect(runRestrictedJscpp(
-      wrapped.code,
-      createArduinoInclude(engine, () => undefined),
-    )).toBe(0);
+    expect(
+      runRestrictedJscpp(
+        wrapped.code,
+        createArduinoInclude(engine, () => undefined),
+      ),
+    ).toBe(0);
     expect(engine.state.pins.D6.outputValue).toBe(1);
   });
 });

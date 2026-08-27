@@ -15,6 +15,8 @@ describe("StatusPanel", () => {
 
     const diagnostic = screen.getByText(/expected ';'/);
     expect(diagnostic.tagName).toBe("PRE");
-    expect(diagnostic.textContent).toBe("Line 7:\nexpected ';'\nwhile parsing loop()");
+    expect(diagnostic.textContent).toBe(
+      "Line 7:\nexpected ';'\nwhile parsing loop()",
+    );
   });
 });

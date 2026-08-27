@@ -14,10 +14,20 @@ function formatValue(value: number): string {
     : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export function Sensor({ component, value, onChange, onConfigure }: SensorProps) {
-  const clamped = Math.max(component.rangeStart, Math.min(component.rangeEnd, value));
+export function Sensor({
+  component,
+  value,
+  onChange,
+  onConfigure,
+}: SensorProps) {
+  const clamped = Math.max(
+    component.rangeStart,
+    Math.min(component.rangeEnd, value),
+  );
   const adcValue = Math.round(
-    ((clamped - component.rangeStart) / (component.rangeEnd - component.rangeStart)) * 1023,
+    ((clamped - component.rangeStart) /
+      (component.rangeEnd - component.rangeStart)) *
+      1023,
   );
 
   return (
@@ -28,7 +38,9 @@ export function Sensor({ component, value, onChange, onConfigure }: SensorProps)
           <h3>{component.label}</h3>
         </div>
         <span className="collapsible-heading-end">
-          <span className="input-summary-value">{formatValue(clamped)} {component.units}</span>
+          <span className="input-summary-value">
+            {formatValue(clamped)} {component.units}
+          </span>
           <button
             className="pin-chip pin-config-button"
             type="button"
@@ -41,18 +53,26 @@ export function Sensor({ component, value, onChange, onConfigure }: SensorProps)
           >
             {component.pin}
           </button>
-          <ChevronDown className="collapse-chevron" size={17} aria-hidden="true" />
+          <ChevronDown
+            className="collapse-chevron"
+            size={17}
+            aria-hidden="true"
+          />
         </span>
       </summary>
 
       <div className="sensor-readouts" aria-live="polite">
         <span>
           <small>Sensor value</small>
-          <strong>{formatValue(clamped)} <b>{component.units}</b></strong>
+          <strong>
+            {formatValue(clamped)} <b>{component.units}</b>
+          </strong>
         </span>
         <span>
           <small>analogRead()</small>
-          <strong>{adcValue} <b>ADC</b></strong>
+          <strong>
+            {adcValue} <b>ADC</b>
+          </strong>
         </span>
       </div>
 
@@ -70,8 +90,12 @@ export function Sensor({ component, value, onChange, onConfigure }: SensorProps)
         onChange={(event) => onChange(Number(event.currentTarget.value))}
       />
       <div className="range-labels">
-        <span>{formatValue(component.rangeStart)} {component.units}</span>
-        <span>{formatValue(component.rangeEnd)} {component.units}</span>
+        <span>
+          {formatValue(component.rangeStart)} {component.units}
+        </span>
+        <span>
+          {formatValue(component.rangeEnd)} {component.units}
+        </span>
       </div>
     </details>
   );

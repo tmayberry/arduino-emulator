@@ -66,10 +66,15 @@ function withoutComments(source: string): string {
 }
 
 export function hasEmptyLoop(source: string): boolean {
-  return /\bvoid\s+loop\s*\(\s*(?:void\s*)?\)\s*\{\s*\}/.test(withoutComments(source));
+  return /\bvoid\s+loop\s*\(\s*(?:void\s*)?\)\s*\{\s*\}/.test(
+    withoutComments(source),
+  );
 }
 
-export function wrapArduinoSource(source: string, config: HardwareConfig): WrappedSource {
+export function wrapArduinoSource(
+  source: string,
+  config: HardwareConfig,
+): WrappedSource {
   const prefix = [
     "#define LOW 0",
     "#define HIGH 1",
@@ -80,7 +85,10 @@ export function wrapArduinoSource(source: string, config: HardwareConfig): Wrapp
     "#define max(a,b) ((a)>(b)?(a):(b))",
     "#define constrain(value,low,high) ((value)<(low)?(low):((value)>(high)?(high):(value)))",
     ...Array.from({ length: 14 }, (_, index) => `#define D${index} ${index}`),
-    ...Array.from({ length: 8 }, (_, index) => `#define A${index} ${14 + index}`),
+    ...Array.from(
+      { length: 8 },
+      (_, index) => `#define A${index} ${14 + index}`,
+    ),
     `#define TEST_LED_PIN ${config.testLedPin}`,
     `#define LED_BUILTIN ${config.builtInLedPin}`,
     '#include "Arduino.h"',

@@ -13,7 +13,10 @@ interface CodeEditorProps {
 
 export function CodeEditor({ value, onChange, onRestore }: CodeEditorProps) {
   return (
-    <section className="workspace-panel code-panel" aria-label="Arduino code editor">
+    <section
+      className="workspace-panel code-panel"
+      aria-label="Arduino code editor"
+    >
       <div className="panel-heading code-heading">
         <div>
           <span className="eyebrow">Sketch</span>
@@ -35,7 +38,8 @@ export function CodeEditor({ value, onChange, onRestore }: CodeEditorProps) {
           options={{
             automaticLayout: true,
             minimap: { enabled: false },
-            fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", monospace',
+            fontFamily:
+              '"SFMono-Regular", Consolas, "Liberation Mono", monospace',
             fontSize: 14,
             lineHeight: 23,
             padding: { top: 18, bottom: 18 },

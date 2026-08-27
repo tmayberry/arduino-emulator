@@ -17,7 +17,12 @@ export interface WorkerInputs {
 }
 
 export type UiToWorkerMessage =
-  | { type: "start"; source: string; config: HardwareConfig; inputs: WorkerInputs }
+  | {
+      type: "start";
+      source: string;
+      config: HardwareConfig;
+      inputs: WorkerInputs;
+    }
   | {
       type: "input-change";
       componentId: string;
@@ -45,8 +50,8 @@ export type WorkerToUiMessage =
 export function isWorkerMessage(value: unknown): value is WorkerToUiMessage {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      "type" in value &&
-      typeof (value as { type?: unknown }).type === "string",
+    typeof value === "object" &&
+    "type" in value &&
+    typeof (value as { type?: unknown }).type === "string",
   );
 }

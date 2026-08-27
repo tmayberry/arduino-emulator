@@ -27,8 +27,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
-      - run: npm run build
+      - run: npm run validate
         env:
           VITE_TURN_BROKER_URL: ${{ vars.VITE_TURN_BROKER_URL }}
       - uses: actions/configure-pages@v5

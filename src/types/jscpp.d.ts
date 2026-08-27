@@ -12,7 +12,11 @@ declare module "JSCPP" {
   }
 
   const JSCPP: {
-    run(source: string, input: string, config?: JscppConfig): JscppDebugger | number;
+    run(
+      source: string,
+      input: string,
+      config?: JscppConfig,
+    ): JscppDebugger | number;
   };
 
   export default JSCPP;

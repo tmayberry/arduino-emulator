@@ -112,7 +112,8 @@ function toDosDateTime(value) {
       (value.getHours() << 11) |
       (value.getMinutes() << 5) |
       Math.floor(value.getSeconds() / 2),
-    date: ((year - 1980) << 9) | ((value.getMonth() + 1) << 5) | value.getDate(),
+    date:
+      ((year - 1980) << 9) | ((value.getMonth() + 1) << 5) | value.getDate(),
   };
 }
 

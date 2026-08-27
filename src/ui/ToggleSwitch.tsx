@@ -8,7 +8,12 @@ interface ToggleSwitchProps {
   onConfigure(): void;
 }
 
-export function ToggleSwitch({ component, checked, onChange, onConfigure }: ToggleSwitchProps) {
+export function ToggleSwitch({
+  component,
+  checked,
+  onChange,
+  onConfigure,
+}: ToggleSwitchProps) {
   const digitalValue = checked ? component.onValue : component.offValue;
 
   return (
@@ -19,7 +24,9 @@ export function ToggleSwitch({ component, checked, onChange, onConfigure }: Togg
           <h3>{component.label}</h3>
         </div>
         <span className="collapsible-heading-end">
-          <span className="input-summary-value">{digitalValue === 1 ? "HIGH" : "LOW"}</span>
+          <span className="input-summary-value">
+            {digitalValue === 1 ? "HIGH" : "LOW"}
+          </span>
           <button
             className="pin-chip pin-config-button"
             type="button"
@@ -32,11 +39,17 @@ export function ToggleSwitch({ component, checked, onChange, onConfigure }: Togg
           >
             D{component.pin}
           </button>
-          <ChevronDown className="collapse-chevron" size={17} aria-hidden="true" />
+          <ChevronDown
+            className="collapse-chevron"
+            size={17}
+            aria-hidden="true"
+          />
         </span>
       </summary>
       <div className="toggle-control-row">
-        <span className={!checked ? "toggle-label active" : "toggle-label"}>OFF</span>
+        <span className={!checked ? "toggle-label active" : "toggle-label"}>
+          OFF
+        </span>
         <label className="switch-control">
           <span className="sr-only">Toggle switch position</span>
           <input
@@ -44,9 +57,13 @@ export function ToggleSwitch({ component, checked, onChange, onConfigure }: Togg
             checked={checked}
             onChange={(event) => onChange(event.currentTarget.checked)}
           />
-          <span className="switch-track"><span className="switch-thumb" /></span>
+          <span className="switch-track">
+            <span className="switch-thumb" />
+          </span>
         </label>
-        <span className={checked ? "toggle-label active" : "toggle-label"}>ON</span>
+        <span className={checked ? "toggle-label active" : "toggle-label"}>
+          ON
+        </span>
       </div>
       <div className="logic-readout">
         Reading <strong>{digitalValue === 1 ? "HIGH" : "LOW"}</strong>

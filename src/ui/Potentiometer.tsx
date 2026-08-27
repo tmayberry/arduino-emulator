@@ -8,7 +8,12 @@ interface PotentiometerProps {
   onConfigure(): void;
 }
 
-export function Potentiometer({ component, value, onChange, onConfigure }: PotentiometerProps) {
+export function Potentiometer({
+  component,
+  value,
+  onChange,
+  onConfigure,
+}: PotentiometerProps) {
   const percentage = (value - component.min) / (component.max - component.min);
   const angle = -135 + percentage * 270;
 
@@ -33,7 +38,11 @@ export function Potentiometer({ component, value, onChange, onConfigure }: Poten
           >
             {component.pin}
           </button>
-          <ChevronDown className="collapse-chevron" size={17} aria-hidden="true" />
+          <ChevronDown
+            className="collapse-chevron"
+            size={17}
+            aria-hidden="true"
+          />
         </span>
       </summary>
       <div className="potentiometer-control">
@@ -57,7 +66,10 @@ export function Potentiometer({ component, value, onChange, onConfigure }: Poten
         value={value}
         onChange={(event) => onChange(Number(event.currentTarget.value))}
       />
-      <div className="range-labels"><span>{component.min}</span><span>{component.max}</span></div>
+      <div className="range-labels">
+        <span>{component.min}</span>
+        <span>{component.max}</span>
+      </div>
     </details>
   );
 }

@@ -2,12 +2,12 @@ import type { AccelerometerReading } from "../emulator/workerProtocol";
 import { decodePairingDescription, encodePairingDescription } from "./pairing";
 
 export const ICE_CONFIGURATION: RTCConfiguration = {
-  iceServers: [
-    { urls: "stun:stun.cloudflare.com:3478" },
-  ],
+  iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
 };
 
-export function makeIceConfiguration(iceServers: RTCIceServer[]): RTCConfiguration {
+export function makeIceConfiguration(
+  iceServers: RTCIceServer[],
+): RTCConfiguration {
   const hasTurnRelay = iceServers.some((server) => {
     const urls = typeof server.urls === "string" ? [server.urls] : server.urls;
     return urls.some((url) => /^turns?:/iu.test(url));
@@ -37,12 +37,16 @@ interface SensorPacket extends AccelerometerReading {
 }
 
 function waitForIceGathering(peer: RTCPeerConnection): Promise<void> {
-  const hasRelayCandidate = () => peer.localDescription?.sdp?.includes(" typ relay ") ?? false;
-  const relayUnavailableError = () => new Error(
-    "Could not reach the secure TURN relay on TCP port 443. This device may have a managed WebRTC restriction.",
-  );
+  const hasRelayCandidate = () =>
+    peer.localDescription?.sdp?.includes(" typ relay ") ?? false;
+  const relayUnavailableError = () =>
+    new Error(
+      "Could not reach the secure TURN relay on TCP port 443. This device may have a managed WebRTC restriction.",
+    );
   if (peer.iceGatheringState === "complete") {
-    return hasRelayCandidate() ? Promise.resolve() : Promise.reject(relayUnavailableError());
+    return hasRelayCandidate()
+      ? Promise.resolve()
+      : Promise.reject(relayUnavailableError());
   }
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => {
@@ -68,16 +72,21 @@ function waitForIceGathering(peer: RTCPeerConnection): Promise<void> {
 function isSensorPacket(value: unknown): value is SensorPacket {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      "version" in value &&
-      value.version === 1 &&
-      "type" in value &&
-      value.type === "acceleration" &&
-      "x" in value && Number.isFinite(Number(value.x)) &&
-      "y" in value && Number.isFinite(Number(value.y)) &&
-      "z" in value && Number.isFinite(Number(value.z)) &&
-      "sequence" in value && Number.isInteger(Number(value.sequence)) &&
-      "timestampMs" in value && Number.isFinite(Number(value.timestampMs)),
+    typeof value === "object" &&
+    "version" in value &&
+    value.version === 1 &&
+    "type" in value &&
+    value.type === "acceleration" &&
+    "x" in value &&
+    Number.isFinite(Number(value.x)) &&
+    "y" in value &&
+    Number.isFinite(Number(value.y)) &&
+    "z" in value &&
+    Number.isFinite(Number(value.z)) &&
+    "sequence" in value &&
+    Number.isInteger(Number(value.sequence)) &&
+    "timestampMs" in value &&
+    Number.isFinite(Number(value.timestampMs)),
   );
 }
 
@@ -146,7 +155,10 @@ export class DesktopAccelerometerPeer extends AccelerometerPeer {
       try {
         const packet: unknown = JSON.parse(String(event.data));
         if (isSensorPacket(packet)) {
-          onReading({ x: Number(packet.x), y: Number(packet.y), z: Number(packet.z) }, Date.now());
+          onReading(
+            { x: Number(packet.x), y: Number(packet.y), z: Number(packet.z) },
+            Date.now(),
+          );
         }
       } catch {
         // Ignore malformed peer messages.
@@ -158,7 +170,8 @@ export class DesktopAccelerometerPeer extends AccelerometerPeer {
     this.onStatus("gathering");
     await this.peer.setLocalDescription(await this.peer.createOffer());
     await waitForIceGathering(this.peer);
-    if (!this.peer.localDescription) throw new Error("Could not create a pairing offer.");
+    if (!this.peer.localDescription)
+      throw new Error("Could not create a pairing offer.");
     this.onStatus("waiting");
     return encodePairingDescription("offer", this.peer.localDescription);
   }
@@ -171,7 +184,9 @@ export class DesktopAccelerometerPeer extends AccelerometerPeer {
       return;
     }
     if (this.peer.signalingState !== "have-local-offer") {
-      throw new Error("This pairing session is no longer waiting for an answer. Start pairing again.");
+      throw new Error(
+        "This pairing session is no longer waiting for an answer. Start pairing again.",
+      );
     }
     this.onStatus("connecting");
     await this.peer.setRemoteDescription(
@@ -185,7 +200,10 @@ export class PhoneAccelerometerPeer extends AccelerometerPeer {
   private channel: RTCDataChannel | null = null;
   private sequence = 0;
 
-  constructor(onStatus: (status: PeerStatus) => void, iceServers?: RTCIceServer[]) {
+  constructor(
+    onStatus: (status: PeerStatus) => void,
+    iceServers?: RTCIceServer[],
+  ) {
     super(onStatus, iceServers);
     this.peer.addEventListener("datachannel", (event) => {
       this.channel = event.channel;
@@ -199,7 +217,8 @@ export class PhoneAccelerometerPeer extends AccelerometerPeer {
     );
     await this.peer.setLocalDescription(await this.peer.createAnswer());
     await waitForIceGathering(this.peer);
-    if (!this.peer.localDescription) throw new Error("Could not create a pairing answer.");
+    if (!this.peer.localDescription)
+      throw new Error("Could not create a pairing answer.");
     this.onStatus("waiting");
     this.startConnectionTimer();
     return encodePairingDescription("answer", this.peer.localDescription);
@@ -207,12 +226,14 @@ export class PhoneAccelerometerPeer extends AccelerometerPeer {
 
   send(reading: AccelerometerReading, timestampMs: number): void {
     if (!this.channel || this.channel.readyState !== "open") return;
-    this.channel.send(JSON.stringify({
-      version: 1,
-      type: "acceleration",
-      sequence: this.sequence++,
-      timestampMs,
-      ...reading,
-    } satisfies SensorPacket));
+    this.channel.send(
+      JSON.stringify({
+        version: 1,
+        type: "acceleration",
+        sequence: this.sequence++,
+        timestampMs,
+        ...reading,
+      } satisfies SensorPacket),
+    );
   }
 }

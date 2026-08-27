@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CircleStop, Code2, Gauge, Play, RotateCcw, TerminalSquare, Zap } from "lucide-react";
+import {
+  CircleStop,
+  Code2,
+  Gauge,
+  Play,
+  RotateCcw,
+  TerminalSquare,
+  Zap,
+} from "lucide-react";
 import {
   defaultHardware,
   HARDWARE_STORAGE_KEY,
@@ -41,24 +49,30 @@ function makeWorker(): Worker {
 }
 
 export default function App() {
-  const [hardwareConfig, setHardwareConfig] = useState(() => loadHardwareConfig(window.localStorage));
-  const initialState = useRef(createInitialSimulationState(hardwareConfig));
+  const [hardwareConfig, setHardwareConfig] = useState(() =>
+    loadHardwareConfig(window.localStorage),
+  );
+  const [initialState] = useState(() =>
+    createInitialSimulationState(hardwareConfig),
+  );
   const [source, setSource] = useState(loadSavedSketch);
   const [status, setStatus] = useState<RunStatus>("ready");
-  const [statusMessage, setStatusMessage] = useState("Edit the sketch, then press Run.");
+  const [statusMessage, setStatusMessage] = useState(
+    "Edit the sketch, then press Run.",
+  );
   const [errorLine, setErrorLine] = useState<number>();
   const [virtualTimeMs, setVirtualTimeMs] = useState(0);
   const [serialOutput, setSerialOutput] = useState("");
   const [pinOutputs, setPinOutputs] = useState<Record<string, PinOutput>>({});
   const [componentInputs, setComponentInputs] = useState(
-    initialState.current.inputs.components,
+    initialState.inputs.components,
   );
   const [setupOpen, setSetupOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<WorkspaceSection>("code");
   const [accelerometer, setAccelerometer] = useState<AccelerometerReading>({
-    x: initialState.current.inputs.accelerometer.x,
-    y: initialState.current.inputs.accelerometer.y,
-    z: initialState.current.inputs.accelerometer.z,
+    x: initialState.inputs.accelerometer.x,
+    y: initialState.inputs.accelerometer.y,
+    z: initialState.inputs.accelerometer.z,
   });
   const [accelerometerConnected, setAccelerometerConnected] = useState(false);
   const accelerometerUpdatedAtRef = useRef(0);
@@ -83,47 +97,52 @@ export default function App() {
     workerRef.current = null;
   }, []);
 
-  const handleWorkerMessage = useCallback((message: WorkerToUiMessage) => {
-    switch (message.type) {
-      case "running":
-        setStatus("running");
-        setStatusMessage("Sketch is running. Inputs stay live while it executes.");
-        break;
-      case "pin-change":
-        setPinOutputs((current) => ({
-          ...current,
-          [message.pin]: { kind: "digital", value: message.value },
-        }));
-        break;
-      case "pwm-change":
-        setPinOutputs((current) => ({
-          ...current,
-          [message.pin]: { kind: "pwm", value: message.value },
-        }));
-        break;
-      case "time-change":
-        setVirtualTimeMs(message.virtualTimeMs);
-        break;
-      case "serial-output":
-        setSerialOutput((current) =>
-          `${current}${message.text}`.slice(-MAX_SERIAL_MONITOR_LENGTH),
-        );
-        break;
-      case "error":
-        runtimeErrorRef.current = true;
-        setStatus("error");
-        setStatusMessage(message.message);
-        setErrorLine(message.line);
-        break;
-      case "stopped":
-        if (!runtimeErrorRef.current) {
-          setStatus("stopped");
-          setStatusMessage(message.reason ?? "Sketch stopped.");
-        }
-        terminateWorker();
-        break;
-    }
-  }, [terminateWorker]);
+  const handleWorkerMessage = useCallback(
+    (message: WorkerToUiMessage) => {
+      switch (message.type) {
+        case "running":
+          setStatus("running");
+          setStatusMessage(
+            "Sketch is running. Inputs stay live while it executes.",
+          );
+          break;
+        case "pin-change":
+          setPinOutputs((current) => ({
+            ...current,
+            [message.pin]: { kind: "digital", value: message.value },
+          }));
+          break;
+        case "pwm-change":
+          setPinOutputs((current) => ({
+            ...current,
+            [message.pin]: { kind: "pwm", value: message.value },
+          }));
+          break;
+        case "time-change":
+          setVirtualTimeMs(message.virtualTimeMs);
+          break;
+        case "serial-output":
+          setSerialOutput((current) =>
+            `${current}${message.text}`.slice(-MAX_SERIAL_MONITOR_LENGTH),
+          );
+          break;
+        case "error":
+          runtimeErrorRef.current = true;
+          setStatus("error");
+          setStatusMessage(message.message);
+          setErrorLine(message.line);
+          break;
+        case "stopped":
+          if (!runtimeErrorRef.current) {
+            setStatus("stopped");
+            setStatusMessage(message.reason ?? "Sketch stopped.");
+          }
+          terminateWorker();
+          break;
+      }
+    },
+    [terminateWorker],
+  );
 
   const run = useCallback(() => {
     terminateWorker();
@@ -143,7 +162,9 @@ export default function App() {
       console.error("Emulator worker error", event);
       runtimeErrorRef.current = true;
       setStatus("error");
-      setStatusMessage("The emulator worker stopped unexpectedly. Check the sketch and try again.");
+      setStatusMessage(
+        "The emulator worker stopped unexpectedly. Check the sketch and try again.",
+      );
       terminateWorker();
     };
 
@@ -161,13 +182,23 @@ export default function App() {
       },
     };
     worker.postMessage(message);
-  }, [accelerometer, accelerometerConnected, componentInputs, handleWorkerMessage, hardwareConfig, source, terminateWorker]);
+  }, [
+    accelerometer,
+    accelerometerConnected,
+    componentInputs,
+    handleWorkerMessage,
+    hardwareConfig,
+    source,
+    terminateWorker,
+  ]);
 
   const stop = useCallback(() => {
     terminateWorker();
     runtimeErrorRef.current = false;
     setStatus("stopped");
-    setStatusMessage("Sketch stopped. Hardware state is preserved until Reset.");
+    setStatusMessage(
+      "Sketch stopped. Hardware state is preserved until Reset.",
+    );
     setErrorLine(undefined);
   }, [terminateWorker]);
 
@@ -189,7 +220,9 @@ export default function App() {
     setVirtualTimeMs(0);
     setSerialOutput("");
     setStatus("ready");
-    setStatusMessage("Hardware and board setup reset to defaults. Your sketch is unchanged.");
+    setStatusMessage(
+      "Hardware and board setup reset to defaults. Your sketch is unchanged.",
+    );
     setErrorLine(undefined);
     setSetupOpen(false);
     try {
@@ -215,7 +248,9 @@ export default function App() {
     setVirtualTimeMs(0);
     setSerialOutput("");
     setStatus("ready");
-    setStatusMessage("Board reset. Your configured devices and pins were kept.");
+    setStatusMessage(
+      "Board reset. Your configured devices and pins were kept.",
+    );
     setErrorLine(undefined);
   }, [hardwareConfig, terminateWorker]);
 
@@ -245,7 +280,9 @@ export default function App() {
     setVirtualTimeMs(0);
     setSerialOutput("");
     setStatus("ready");
-    setStatusMessage("Board setup updated. Run the sketch to use the new pins.");
+    setStatusMessage(
+      "Board setup updated. Run the sketch to use the new pins.",
+    );
     setErrorLine(undefined);
     setSetupOpen(false);
     try {
@@ -259,24 +296,30 @@ export default function App() {
     }
   };
 
-  const changeAccelerometer = useCallback((
-    reading: AccelerometerReading,
-    connected: boolean,
-    updatedAtMs: number,
-  ) => {
-    setAccelerometer(reading);
-    setAccelerometerConnected(connected);
-    accelerometerUpdatedAtRef.current = updatedAtMs;
-    sendInput({
-      type: "accelerometer-change",
-      reading,
-      connected,
-      updatedAtMs,
-    });
-  }, [sendInput]);
+  const changeAccelerometer = useCallback(
+    (
+      reading: AccelerometerReading,
+      connected: boolean,
+      updatedAtMs: number,
+    ) => {
+      setAccelerometer(reading);
+      setAccelerometerConnected(connected);
+      accelerometerUpdatedAtRef.current = updatedAtMs;
+      sendInput({
+        type: "accelerometer-change",
+        reading,
+        connected,
+        updatedAtMs,
+      });
+    },
+    [sendInput],
+  );
 
   const restoreStarter = () => {
-    if (source === STARTER_SKETCH || window.confirm("Replace the editor contents with the starter sketch?")) {
+    if (
+      source === STARTER_SKETCH ||
+      window.confirm("Replace the editor contents with the starter sketch?")
+    ) {
       setSource(STARTER_SKETCH);
     }
   };
@@ -287,7 +330,9 @@ export default function App() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark"><Zap size={19} fill="currentColor" aria-hidden="true" /></span>
+          <span className="brand-mark">
+            <Zap size={19} fill="currentColor" aria-hidden="true" />
+          </span>
           <div>
             <h1>Arduino Emulator</h1>
           </div>
@@ -299,11 +344,21 @@ export default function App() {
           virtualTimeMs={virtualTimeMs}
         />
         <div className="run-controls" aria-label="Simulation controls">
-          <button className="control-button run-button" type="button" onClick={run} disabled={isActive}>
+          <button
+            className="control-button run-button"
+            type="button"
+            onClick={run}
+            disabled={isActive}
+          >
             <Play size={16} fill="currentColor" aria-hidden="true" />
             Run
           </button>
-          <button className="control-button stop-button" type="button" onClick={stop} disabled={!isActive}>
+          <button
+            className="control-button stop-button"
+            type="button"
+            onClick={stop}
+            disabled={!isActive}
+          >
             <CircleStop size={16} aria-hidden="true" />
             Stop
           </button>
@@ -320,23 +375,43 @@ export default function App() {
       </header>
 
       <nav className="mobile-section-nav" aria-label="Workspace sections">
-        <button type="button" aria-pressed={activeSection === "code"} onClick={() => setActiveSection("code")}>
+        <button
+          type="button"
+          aria-pressed={activeSection === "code"}
+          onClick={() => setActiveSection("code")}
+        >
           <Code2 size={16} aria-hidden="true" /> Code
         </button>
-        <button type="button" aria-pressed={activeSection === "hardware"} onClick={() => setActiveSection("hardware")}>
+        <button
+          type="button"
+          aria-pressed={activeSection === "hardware"}
+          onClick={() => setActiveSection("hardware")}
+        >
           <Gauge size={16} aria-hidden="true" /> Hardware
         </button>
-        <button type="button" aria-pressed={activeSection === "serial"} onClick={() => setActiveSection("serial")}>
+        <button
+          type="button"
+          aria-pressed={activeSection === "serial"}
+          onClick={() => setActiveSection("serial")}
+        >
           <TerminalSquare size={16} aria-hidden="true" /> Serial
         </button>
       </nav>
 
       <div className="workspace">
         <div className="editor-column">
-          <div className={`mobile-pane code-pane${activeSection === "code" ? " mobile-pane-active" : ""}`}>
-            <CodeEditor value={source} onChange={setSource} onRestore={restoreStarter} />
+          <div
+            className={`mobile-pane code-pane${activeSection === "code" ? " mobile-pane-active" : ""}`}
+          >
+            <CodeEditor
+              value={source}
+              onChange={setSource}
+              onRestore={restoreStarter}
+            />
           </div>
-          <div className={`mobile-pane serial-pane${activeSection === "serial" ? " mobile-pane-active" : ""}`}>
+          <div
+            className={`mobile-pane serial-pane${activeSection === "serial" ? " mobile-pane-active" : ""}`}
+          >
             <SerialMonitor
               output={serialOutput}
               inputEnabled={isActive}
@@ -346,7 +421,9 @@ export default function App() {
             />
           </div>
         </div>
-        <div className={`mobile-pane hardware-pane${activeSection === "hardware" ? " mobile-pane-active" : ""}`}>
+        <div
+          className={`mobile-pane hardware-pane${activeSection === "hardware" ? " mobile-pane-active" : ""}`}
+        >
           <HardwareView
             config={hardwareConfig}
             pinOutputs={pinOutputs}

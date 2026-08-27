@@ -18,7 +18,9 @@ describe("Arduino source wrapper", () => {
     expect(wrapped.code).toContain("#define min(a,b)");
     expect(wrapped.code).toContain("#define max(a,b)");
     expect(wrapped.code).toContain("#define constrain(value,low,high)");
-    expect(wrapped.code).toContain(`#define TEST_LED_PIN ${hardwareConfig.testLedPin}`);
+    expect(wrapped.code).toContain(
+      `#define TEST_LED_PIN ${hardwareConfig.testLedPin}`,
+    );
     expect(wrapped.code).toContain("#define LED_BUILTIN 13");
     expect(wrapped.code).toContain('#include "Arduino.h"');
     expect(wrapped.code).toContain("while (true)");
@@ -34,9 +36,9 @@ void loop() {
 
     expect(hasEmptyLoop(emptySource)).toBe(true);
     expect(hasEmptyLoop(commentedSource)).toBe(true);
-    expect(wrapArduinoSource(commentedSource, hardwareConfig).code).not.toContain(
-      "while (true)",
-    );
+    expect(
+      wrapArduinoSource(commentedSource, hardwareConfig).code,
+    ).not.toContain("while (true)");
   });
 
   it("does not mistake comments inside a non-empty loop for an empty loop", () => {
@@ -46,13 +48,19 @@ void loop() {
 }`;
 
     expect(hasEmptyLoop(source)).toBe(false);
-    expect(wrapArduinoSource(source, hardwareConfig).code).toContain("while (true)");
+    expect(wrapArduinoSource(source, hardwareConfig).code).toContain(
+      "while (true)",
+    );
   });
 
   it("translates wrapped lines back to editor lines", () => {
     const source = "void setup() {}\nvoid loop() {}";
     const wrapped = wrapArduinoSource(source, hardwareConfig);
-    expect(toStudentLine(wrapped.prefixLineCount + 1, wrapped.prefixLineCount, 2)).toBe(1);
-    expect(toStudentLine(wrapped.prefixLineCount + 2, wrapped.prefixLineCount, 2)).toBe(2);
+    expect(
+      toStudentLine(wrapped.prefixLineCount + 1, wrapped.prefixLineCount, 2),
+    ).toBe(1);
+    expect(
+      toStudentLine(wrapped.prefixLineCount + 2, wrapped.prefixLineCount, 2),
+    ).toBe(2);
   });
 });

@@ -18,16 +18,22 @@ describe("WebRTC pairing codec", () => {
   });
 
   it("forces broker-provided TURN traffic through the relay", () => {
-    expect(makeIceConfiguration([{
-      urls: "turns:turn.cloudflare.com:443?transport=tcp",
-      username: "temporary-user",
-      credential: "temporary-password",
-    }])).toEqual({
-      iceServers: [{
-        urls: "turns:turn.cloudflare.com:443?transport=tcp",
-        username: "temporary-user",
-        credential: "temporary-password",
-      }],
+    expect(
+      makeIceConfiguration([
+        {
+          urls: "turns:turn.cloudflare.com:443?transport=tcp",
+          username: "temporary-user",
+          credential: "temporary-password",
+        },
+      ]),
+    ).toEqual({
+      iceServers: [
+        {
+          urls: "turns:turn.cloudflare.com:443?transport=tcp",
+          username: "temporary-user",
+          credential: "temporary-password",
+        },
+      ],
       iceTransportPolicy: "relay",
     });
   });
@@ -54,19 +60,36 @@ describe("WebRTC pairing codec", () => {
   });
 
   it("continues to decode legacy compressed answers", () => {
-    const description: RTCSessionDescriptionInit = { type: "answer", sdp: "v=0\r\n" };
-    const bytes = compressSync(strToU8(JSON.stringify({ version: 1, kind: "answer", description })));
+    const description: RTCSessionDescriptionInit = {
+      type: "answer",
+      sdp: "v=0\r\n",
+    };
+    const bytes = compressSync(
+      strToU8(JSON.stringify({ version: 1, kind: "answer", description })),
+    );
     let binary = "";
     for (const byte of bytes) binary += String.fromCharCode(byte);
-    const legacyToken = btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+    const legacyToken = btoa(binary)
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replace(/=+$/u, "");
 
-    expect(decodePairingDescription(legacyToken, "answer")).toEqual(description);
+    expect(decodePairingDescription(legacyToken, "answer")).toEqual(
+      description,
+    );
   });
 
   it("rejects the wrong pairing direction and reads pairing-session hashes", () => {
-    const token = encodePairingDescription("answer", { type: "answer", sdp: "v=0" });
-    expect(() => decodePairingDescription(token, "offer")).toThrow(/not a compatible/);
-    expect(getPhonePairingSessionId("#pair=classroom-session")).toBe("classroom-session");
+    const token = encodePairingDescription("answer", {
+      type: "answer",
+      sdp: "v=0",
+    });
+    expect(() => decodePairingDescription(token, "offer")).toThrow(
+      /not a compatible/,
+    );
+    expect(getPhonePairingSessionId("#pair=classroom-session")).toBe(
+      "classroom-session",
+    );
     expect(getPhonePairingSessionId("#unrelated")).toBeNull();
   });
 

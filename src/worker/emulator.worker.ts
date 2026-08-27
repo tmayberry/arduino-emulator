@@ -23,7 +23,8 @@ interface DebuggerInstance {
   next(): false | { v: number };
 }
 
-const workerScope: DedicatedWorkerGlobalScope = self as DedicatedWorkerGlobalScope;
+const workerScope: DedicatedWorkerGlobalScope =
+  self as DedicatedWorkerGlobalScope;
 let engine: SimulationEngine | null = null;
 let interpreter: DebuggerInstance | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -83,7 +84,11 @@ function formatError(
     .replace(/\s+at\s+.*$/s, "")
     .trim();
 
-  if (/not implemented|not supported|unknown type|unknown specifier/i.test(message)) {
+  if (
+    /not implemented|not supported|unknown type|unknown specifier/i.test(
+      message,
+    )
+  ) {
     message =
       "This emulator supports the Arduino/C++ features currently implemented, but this particular C++ feature is not yet supported.";
   } else if (message.length > 2_000) {
@@ -162,13 +167,21 @@ function runSlice(runId: number): void {
   } catch (error) {
     flushSerialOutput();
     console.error("JSCPP execution error", error);
-    const formatted = formatError(error, currentPrefixLineCount, currentSourceLineCount);
+    const formatted = formatError(
+      error,
+      currentPrefixLineCount,
+      currentSourceLineCount,
+    );
     post({ type: "error", ...formatted });
     stopRun("Execution error");
   }
 }
 
-function start(source: string, config: HardwareConfig, inputs: WorkerInputs): void {
+function start(
+  source: string,
+  config: HardwareConfig,
+  inputs: WorkerInputs,
+): void {
   clearScheduledSlice();
   currentRun += 1;
   const runId = currentRun;

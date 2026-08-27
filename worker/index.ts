@@ -52,7 +52,9 @@ function corsHeaders(origin: string): HeadersInit {
   };
 }
 
-async function parseSmallJson(request: Request): Promise<Record<string, unknown>> {
+async function parseSmallJson(
+  request: Request,
+): Promise<Record<string, unknown>> {
   const contentLength = Number(request.headers.get("Content-Length") ?? "0");
   if (contentLength > MAX_REQUEST_BYTES) throw new Error("request_too_large");
   if (!request.body) throw new Error("invalid_json");
@@ -83,22 +85,43 @@ async function parseSmallJson(request: Request): Promise<Record<string, unknown>
   return parsed as Record<string, unknown>;
 }
 
-async function secretMatches(provided: string, expected: string): Promise<boolean> {
+async function secretMatches(
+  provided: string,
+  expected: string,
+): Promise<boolean> {
   const encoder = new TextEncoder();
   const algorithm = { name: "HMAC", hash: "SHA-256" };
   const [providedKey, expectedKey] = await Promise.all([
-    crypto.subtle.importKey("raw", encoder.encode(provided), algorithm, false, ["sign"]),
-    crypto.subtle.importKey("raw", encoder.encode(expected), algorithm, false, ["verify"]),
+    crypto.subtle.importKey("raw", encoder.encode(provided), algorithm, false, [
+      "sign",
+    ]),
+    crypto.subtle.importKey("raw", encoder.encode(expected), algorithm, false, [
+      "verify",
+    ]),
   ]);
-  const comparisonMessage = encoder.encode("arduino-emulator-course-access-code");
-  const providedMac = await crypto.subtle.sign("HMAC", providedKey, comparisonMessage);
-  return crypto.subtle.verify("HMAC", expectedKey, providedMac, comparisonMessage);
+  const comparisonMessage = encoder.encode(
+    "arduino-emulator-course-access-code",
+  );
+  const providedMac = await crypto.subtle.sign(
+    "HMAC",
+    providedKey,
+    comparisonMessage,
+  );
+  return crypto.subtle.verify(
+    "HMAC",
+    expectedKey,
+    providedMac,
+    comparisonMessage,
+  );
 }
 
 function toBase64Url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
 }
 
 function fromBase64Url(value: string): Uint8Array {
@@ -130,7 +153,9 @@ async function createGrant(
     sessionId,
     role,
   };
-  const encodedPayload = toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
+  const encodedPayload = toBase64Url(
+    new TextEncoder().encode(JSON.stringify(payload)),
+  );
   const signature = await crypto.subtle.sign(
     "HMAC",
     await signingKey(env.PAIR_GRANT_SIGNING_KEY),
@@ -155,16 +180,23 @@ async function verifyGrant(
       new TextEncoder().encode(parts[0]),
     );
     if (!validSignature) return false;
-    const payload: unknown = JSON.parse(new TextDecoder().decode(fromBase64Url(parts[0])));
+    const payload: unknown = JSON.parse(
+      new TextDecoder().decode(fromBase64Url(parts[0])),
+    );
     return Boolean(
       payload &&
-        typeof payload === "object" &&
-        "version" in payload && payload.version === 1 &&
-        "expiresAt" in payload && typeof payload.expiresAt === "number" &&
-        payload.expiresAt >= Math.floor(Date.now() / 1000) &&
-        "nonce" in payload && typeof payload.nonce === "string" &&
-        "sessionId" in payload && payload.sessionId === sessionId &&
-        "role" in payload && payload.role === role,
+      typeof payload === "object" &&
+      "version" in payload &&
+      payload.version === 1 &&
+      "expiresAt" in payload &&
+      typeof payload.expiresAt === "number" &&
+      payload.expiresAt >= Math.floor(Date.now() / 1000) &&
+      "nonce" in payload &&
+      typeof payload.nonce === "string" &&
+      "sessionId" in payload &&
+      payload.sessionId === sessionId &&
+      "role" in payload &&
+      payload.role === role,
     );
   } catch {
     return false;
@@ -219,11 +251,13 @@ export class PairingSession extends DurableObject<Env> {
   }
 
   async getOffer(): Promise<string | null> {
-    const rows = this.ctx.storage.sql.exec<SessionRow>(
-      `SELECT expires_at, offer_token, answer_token
+    const rows = this.ctx.storage.sql
+      .exec<SessionRow>(
+        `SELECT expires_at, offer_token, answer_token
        FROM pairing_session WHERE singleton = 1 AND expires_at >= ?`,
-      Date.now(),
-    ).toArray();
+        Date.now(),
+      )
+      .toArray();
     return rows[0]?.offer_token ?? null;
   }
 
@@ -241,12 +275,15 @@ export class PairingSession extends DurableObject<Env> {
   }
 
   async getAnswer(): Promise<SessionAnswer> {
-    const rows = this.ctx.storage.sql.exec<SessionRow>(
-      `SELECT expires_at, offer_token, answer_token
+    const rows = this.ctx.storage.sql
+      .exec<SessionRow>(
+        `SELECT expires_at, offer_token, answer_token
        FROM pairing_session WHERE singleton = 1`,
-    ).toArray();
+      )
+      .toArray();
     const session = rows[0];
-    if (!session || session.expires_at < Date.now()) return { status: "expired" };
+    if (!session || session.expires_at < Date.now())
+      return { status: "expired" };
     return session.answer_token
       ? { status: "ready", answerToken: session.answer_token }
       : { status: "pending" };
@@ -258,16 +295,27 @@ export class PairingSession extends DurableObject<Env> {
 }
 
 function validSessionId(value: unknown): value is string {
-  return typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+      value,
+    )
+  );
 }
 
 function validDescriptionToken(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= MAX_DESCRIPTION_TOKEN_LENGTH;
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= MAX_DESCRIPTION_TOKEN_LENGTH
+  );
 }
 
-function sessionRoute(path: string): { sessionId: string; action: string } | null {
-  const match = /^\/v2\/pairing\/sessions\/([^/]+)\/(offer|join|answer|poll)$/u.exec(path);
+function sessionRoute(
+  path: string,
+): { sessionId: string; action: string } | null {
+  const match =
+    /^\/v2\/pairing\/sessions\/([^/]+)\/(offer|join|answer|poll)$/u.exec(path);
   if (!match) return null;
   let sessionId: string;
   try {
@@ -281,21 +329,26 @@ function sessionRoute(path: string): { sessionId: string; action: string } | nul
 function isTurnApiResponse(value: unknown): value is TurnApiResponse {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      "iceServers" in value &&
-      Array.isArray(value.iceServers) &&
-      value.iceServers.every((server) =>
+    typeof value === "object" &&
+    "iceServers" in value &&
+    Array.isArray(value.iceServers) &&
+    value.iceServers.every(
+      (server) =>
         server &&
         typeof server === "object" &&
         "urls" in server &&
         (typeof server.urls === "string" ||
-          (Array.isArray(server.urls) && server.urls.every((url: unknown) => typeof url === "string"))),
-      ),
+          (Array.isArray(server.urls) &&
+            server.urls.every((url: unknown) => typeof url === "string"))),
+    ),
   );
 }
 
 async function generateIceServers(env: Env): Promise<TurnIceServer[]> {
-  const ttl = Math.min(Math.max(Number(env.TURN_CREDENTIAL_TTL_SECONDS), 300), 86_400);
+  const ttl = Math.min(
+    Math.max(Number(env.TURN_CREDENTIAL_TTL_SECONDS), 300),
+    86_400,
+  );
   const response = await fetch(
     `${TURN_API_BASE_URL}/${encodeURIComponent(env.TURN_KEY_ID)}/credentials/generate-ice-servers`,
     {
@@ -308,10 +361,12 @@ async function generateIceServers(env: Env): Promise<TurnIceServer[]> {
     },
   );
   if (!response.ok) {
-    console.error(JSON.stringify({
-      message: "TURN credential generation failed",
-      status: response.status,
-    }));
+    console.error(
+      JSON.stringify({
+        message: "TURN credential generation failed",
+        status: response.status,
+      }),
+    );
     throw new Error("turn_api_failed");
   }
   const data: unknown = await response.json();
@@ -323,7 +378,9 @@ async function generateIceServers(env: Env): Promise<TurnIceServer[]> {
         ? server.urls.filter((url) => !/:(?:53)(?:\?|$)/u.test(url))
         : server.urls,
     }))
-    .filter((server) => typeof server.urls === "string" || server.urls.length > 0);
+    .filter(
+      (server) => typeof server.urls === "string" || server.urls.length > 0,
+    );
 }
 
 async function handlePost(
@@ -340,9 +397,14 @@ async function handlePost(
   }
 
   if (path === "/v2/pairing/start") {
-    const accessCode = typeof body.accessCode === "string" ? body.accessCode : "";
+    const accessCode =
+      typeof body.accessCode === "string" ? body.accessCode : "";
     if (!(await secretMatches(accessCode, env.COURSE_ACCESS_CODE))) {
-      return jsonResponse({ error: "The course access code is incorrect." }, 401, headers);
+      return jsonResponse(
+        { error: "The course access code is incorrect." },
+        401,
+        headers,
+      );
     }
     const sessionId = crypto.randomUUID();
     const ttl = Math.min(Math.max(Number(env.PAIR_GRANT_TTL_SECONDS), 60), 900);
@@ -354,15 +416,24 @@ async function handlePost(
       createGrant(env, sessionId, "phone", expiresAt),
     ]);
     await session.initialize(expiresAt * 1000);
-    return jsonResponse({ sessionId, desktopGrant, phoneGrant, iceServers }, 201, headers);
+    return jsonResponse(
+      { sessionId, desktopGrant, phoneGrant, iceServers },
+      201,
+      headers,
+    );
   }
 
   const route = sessionRoute(path);
   if (!route) return jsonResponse({ error: "Not found." }, 404, headers);
   const grant = typeof body.grant === "string" ? body.grant : "";
-  const role = route.action === "join" || route.action === "answer" ? "phone" : "desktop";
+  const role =
+    route.action === "join" || route.action === "answer" ? "phone" : "desktop";
   if (!(await verifyGrant(grant, env, route.sessionId, role))) {
-    return jsonResponse({ error: "This pairing session has expired or is not authorized." }, 401, headers);
+    return jsonResponse(
+      { error: "This pairing session has expired or is not authorized." },
+      401,
+      headers,
+    );
   }
   const session = env.PAIRING_SESSIONS.getByName(route.sessionId);
 
@@ -373,15 +444,29 @@ async function handlePost(
     const stored = await session.storeOffer(body.offerToken);
     return stored
       ? jsonResponse({ status: "ready" }, 201, headers)
-      : jsonResponse({ error: "This pairing session is no longer available." }, 409, headers);
+      : jsonResponse(
+          { error: "This pairing session is no longer available." },
+          409,
+          headers,
+        );
   }
 
   if (route.action === "join") {
     const offerToken = await session.getOffer();
     if (!offerToken) {
-      return jsonResponse({ error: "The laptop has not finished preparing this pairing session." }, 409, headers);
+      return jsonResponse(
+        {
+          error: "The laptop has not finished preparing this pairing session.",
+        },
+        409,
+        headers,
+      );
     }
-    return jsonResponse({ offerToken, iceServers: await generateIceServers(env) }, 200, headers);
+    return jsonResponse(
+      { offerToken, iceServers: await generateIceServers(env) },
+      200,
+      headers,
+    );
   }
 
   if (route.action === "answer") {
@@ -391,7 +476,11 @@ async function handlePost(
     const stored = await session.storeAnswer(body.answerToken);
     return stored
       ? jsonResponse({ status: "received" }, 201, headers)
-      : jsonResponse({ error: "This pairing session is no longer available." }, 409, headers);
+      : jsonResponse(
+          { error: "This pairing session is no longer available." },
+          409,
+          headers,
+        );
   }
 
   return jsonResponse(await session.getAnswer(), 200, headers);
@@ -404,26 +493,40 @@ export default {
     if (!origin) return jsonResponse({ error: "Origin not allowed." }, 403);
     const headers = corsHeaders(origin);
 
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+    if (request.method === "OPTIONS")
+      return new Response(null, { status: 204, headers });
     if (request.method !== "POST") {
       return jsonResponse({ error: "Method not allowed." }, 405, {
         ...headers,
         Allow: "POST, OPTIONS",
       });
     }
-    if (request.headers.get("Content-Type")?.split(";", 1)[0] !== "application/json") {
-      return jsonResponse({ error: "Content-Type must be application/json." }, 415, headers);
+    if (
+      request.headers.get("Content-Type")?.split(";", 1)[0] !==
+      "application/json"
+    ) {
+      return jsonResponse(
+        { error: "Content-Type must be application/json." },
+        415,
+        headers,
+      );
     }
 
     try {
       return await handlePost(request, env, url.pathname, headers);
     } catch (error) {
-      console.error(JSON.stringify({
-        message: "Pairing broker request failed",
-        error: error instanceof Error ? error.message : "unknown",
-        path: url.pathname,
-      }));
-      return jsonResponse({ error: "The pairing service is temporarily unavailable." }, 502, headers);
+      console.error(
+        JSON.stringify({
+          message: "Pairing broker request failed",
+          error: error instanceof Error ? error.message : "unknown",
+          path: url.pathname,
+        }),
+      );
+      return jsonResponse(
+        { error: "The pairing service is temporarily unavailable." },
+        502,
+        headers,
+      );
     }
   },
 } satisfies ExportedHandler<Env>;

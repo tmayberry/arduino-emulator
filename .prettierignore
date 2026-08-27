@@ -1,0 +1,5 @@
+dist/
+deployment/
+node_modules/
+worker/worker-configuration.d.ts
+Lab 2.pdf

@@ -26,10 +26,11 @@ The starter sketch is unchanged when hardware is reconfigured, so users should u
 
 ## Local development
 
-Requires a current Node.js release.
+Requires Node.js 22. If you use `nvm`, run `nvm use` to select the version in
+`.nvmrc`.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -37,10 +38,22 @@ Then open the local address printed by Vite.
 
 ## Validation
 
+Run `npm run validate` before submitting any code or configuration change. It
+checks formatting, lint, all tests, TypeScript, and the production bundle.
+
 ```bash
-npm test
-npm run build
+npm run validate
 ```
+
+Changes to the Cloudflare Worker or `wrangler.jsonc` also require:
+
+```bash
+npm run worker:validate
+```
+
+Use `npm run format` to format the repository. If Worker bindings change, run
+`npm run worker:types` before validation; `worker/worker-configuration.d.ts` is
+generated and should not be edited manually.
 
 The production build is written to `dist/` and contains only static browser assets.
 
@@ -55,14 +68,6 @@ npm run deploy:package
 ```
 
 This performs a fresh production build and writes `deployment/arduino-emulator.zip`. Upload the ZIP to the desired web directory and extract it there. Its root contains `index.html` and `assets/`; no Node.js, PHP, or CGI process is needed on the server.
-
-To build and deploy the package to the USNA web server in one step, run:
-
-```bash
-./scripts/deploy-to-usna.sh
-```
-
-The script uploads the ZIP to `mayberry@ssh.cs.usna.edu` and installs it in `~/public_html/arduino_emulator`, published at <https://courses.cs.usna.edu/~mayberry/arduino_emulator/>. It stages the extracted files before replacing the existing deployment, so a build, transfer, or extraction failure leaves the current site intact.
 
 For GitHub Pages, configure Pages to use GitHub Actions, then push to the default branch. The included workflow builds and publishes `dist/`.
 
@@ -96,7 +101,8 @@ The broker is configured by [`wrangler.jsonc`](wrangler.jsonc) and implemented i
    ```
 
    The file uses `NAME=value` lines and is covered by this repository's `.env*` ignore rule. Delete it after deployment or keep it only in an appropriately protected password store.
-4. The checked-in default broker URL is `https://arduino-turn-auth.arduino-emulator.workers.dev`. To target another Worker, set the optional GitHub Actions repository variable `VITE_TURN_BROKER_URL`, or export it for a local or USNA build:
+
+4. The checked-in default broker URL is `https://arduino-turn-auth.arduino-emulator.workers.dev`. To target another Worker, set the optional GitHub Actions repository variable `VITE_TURN_BROKER_URL`, or export it for a local build:
 
    ```bash
    VITE_TURN_BROKER_URL=https://arduino-turn-auth.<subdomain>.workers.dev npm run build
@@ -104,20 +110,35 @@ The broker is configured by [`wrangler.jsonc`](wrangler.jsonc) and implemented i
 
 The Worker accepts browser requests only from the origins listed in `ALLOWED_ORIGINS`. Update that non-secret setting when adding another deployment domain, regenerate bindings with `npm run worker:types`, and redeploy.
 
-Worker validation commands are:
-
-```bash
-npm run worker:types
-npm run worker:check
-npx wrangler deploy --dry-run
-```
-
 ## Architecture
 
 - `src/config/` — swappable hardware definitions
 - `src/emulator/` — simulation state, Arduino API, source wrapper, scheduler, and worker protocol
 - `src/worker/` — JSCPP execution and cooperative scheduling
+- `src/phone/` — WebRTC pairing, TURN broker client, and phone motion input
 - `src/ui/` — editor and config-driven hardware controls
+- `worker/` — Cloudflare TURN credential and pairing broker
 - `tests/` — simulation, compatibility-layer, source-wrapper, and scheduler tests
 
 All interpreted Arduino I/O passes through `SimulationEngine`, leaving one observation point for future tracing, debugging, and alternate hardware configurations.
+
+Sketch execution follows this path:
+
+```text
+App.tsx
+  -> workerProtocol.ts
+  -> emulator.worker.ts
+  -> sourceWrapper.ts + arduinoApi.ts
+  -> SimulationEngine
+  -> worker messages
+  -> App.tsx and UI components
+```
+
+Student sketches must remain in the disposable Web Worker so Stop and Reset can
+terminate them immediately. Changes to worker messages must update both sides of
+`workerProtocol.ts`; emulator changes must preserve cooperative scheduling,
+virtual-time pacing, runaway-loop detection, serial-output bounds, and mapping
+interpreter errors back to student source lines. Hardware behavior should remain
+config-driven rather than embedding configurable pins in UI or emulator logic.
+
+Detailed programming guidance and the test matrix are in [`AGENTS.md`](AGENTS.md).

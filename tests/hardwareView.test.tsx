@@ -8,19 +8,20 @@ describe("HardwareView", () => {
   const renderHardware = (
     onReset = () => undefined,
     onConfigure = () => undefined,
-  ) => render(
-    <HardwareView
-      config={hardwareConfig}
-      pinOutputs={{}}
-      componentInputs={{ potentiometer: 512, toggleSwitch: false }}
-      accelerometer={{ x: 0, y: 0, z: 1 }}
-      accelerometerConnected={false}
-      onInputChange={() => undefined}
-      onAccelerometerChange={() => undefined}
-      onReset={onReset}
-      onConfigure={onConfigure}
-    />,
-  );
+  ) =>
+    render(
+      <HardwareView
+        config={hardwareConfig}
+        pinOutputs={{}}
+        componentInputs={{ potentiometer: 512, toggleSwitch: false }}
+        accelerometer={{ x: 0, y: 0, z: 1 }}
+        accelerometerConnected={false}
+        onInputChange={() => undefined}
+        onAccelerometerChange={() => undefined}
+        onReset={onReset}
+        onConfigure={onConfigure}
+      />,
+    );
 
   it("starts each input widget collapsed and expands them independently", () => {
     const { container } = renderHardware();
@@ -54,7 +55,9 @@ describe("HardwareView", () => {
       />,
     );
 
-    expect(screen.getByLabelText(/Built-in Yellow LED on D13: 100%/)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Built-in Yellow LED on D13: 100%/),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/Green LED: 50%/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Red LED: 100%/)).toBeInTheDocument();
   });
@@ -63,7 +66,9 @@ describe("HardwareView", () => {
     const onReset = vi.fn();
     renderHardware(onReset);
 
-    fireEvent.click(screen.getByRole("button", { name: "Press the Nano reset button" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Press the Nano reset button" }),
+    );
     expect(onReset).toHaveBeenCalledOnce();
   });
 
@@ -71,8 +76,14 @@ describe("HardwareView", () => {
     const onConfigure = vi.fn();
     const { container } = renderHardware(() => undefined, onConfigure);
 
-    fireEvent.click(screen.getByRole("button", { name: "Configure devices & pins Default Hardware" }));
-    fireEvent.click(screen.getByRole("button", { name: "Configure Potentiometer on A7" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Configure devices & pins Default Hardware",
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Configure Potentiometer on A7" }),
+    );
 
     expect(onConfigure).toHaveBeenCalledTimes(2);
     expect(container.querySelector("details")!).not.toHaveAttribute("open");
@@ -103,7 +114,11 @@ describe("HardwareView", () => {
         <HardwareView
           config={config}
           pinOutputs={{}}
-          componentInputs={{ potentiometer: 512, pressureSensor: sensorValue, toggleSwitch: false }}
+          componentInputs={{
+            potentiometer: 512,
+            pressureSensor: sensorValue,
+            toggleSwitch: false,
+          }}
           accelerometer={{ x: 0, y: 0, z: 1 }}
           accelerometerConnected={false}
           onInputChange={(componentId, value) => {
@@ -121,14 +136,20 @@ describe("HardwareView", () => {
     expect(screen.getByText("Pressure Sensor")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Pressure Sensor").closest("summary")!);
     expect(screen.getByText("analogRead()")).toBeInTheDocument();
-    expect(screen.getByText("512", { selector: ".sensor-readouts strong" })).toBeInTheDocument();
-    const slider = screen.getByRole("slider", { name: "Pressure Sensor value in kPa" });
+    expect(
+      screen.getByText("512", { selector: ".sensor-readouts strong" }),
+    ).toBeInTheDocument();
+    const slider = screen.getByRole("slider", {
+      name: "Pressure Sensor value in kPa",
+    });
     expect(slider).toHaveAttribute("min", "0");
     expect(slider).toHaveAttribute("max", "5000");
     expect(slider).toHaveAttribute("step", "any");
 
     fireEvent.change(slider, { target: { value: "5000" } });
     expect(onInputChange).toHaveBeenCalledWith("pressureSensor", 5000);
-    expect(screen.getByText("1023", { selector: ".sensor-readouts strong" })).toBeInTheDocument();
+    expect(
+      screen.getByText("1023", { selector: ".sensor-readouts strong" }),
+    ).toBeInTheDocument();
   });
 });

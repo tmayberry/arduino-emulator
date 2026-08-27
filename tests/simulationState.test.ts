@@ -46,7 +46,10 @@ describe("SimulationEngine", () => {
     const engine = new SimulationEngine(hardwareConfig);
     engine.pinMode(TEST_LED_PIN, OUTPUT);
     engine.digitalWrite(TEST_LED_PIN, HIGH);
-    expect(engine.state.pins.D4).toMatchObject({ mode: OUTPUT, outputValue: HIGH });
+    expect(engine.state.pins.D4).toMatchObject({
+      mode: OUTPUT,
+      outputValue: HIGH,
+    });
     engine.digitalWrite(TEST_LED_PIN, LOW);
     expect(engine.state.pins.D4.outputValue).toBe(LOW);
   });
@@ -141,7 +144,10 @@ describe("SimulationEngine", () => {
   it("supports PWM, simulated time, millis, micros, and Arduino integer map", () => {
     const engine = new SimulationEngine(hardwareConfig);
     engine.analogWrite(TEST_LED_PIN, 128);
-    expect(engine.state.pins.D4).toMatchObject({ outputKind: "pwm", outputValue: 128 });
+    expect(engine.state.pins.D4).toMatchObject({
+      outputKind: "pwm",
+      outputValue: 128,
+    });
     engine.delay(1000);
     expect(engine.millis()).toBe(1000);
     expect(engine.micros()).toBe(1_000_000);
@@ -162,9 +168,17 @@ describe("SimulationEngine", () => {
   it("provides bounded and reproducible seeded random values", () => {
     const engine = new SimulationEngine(hardwareConfig);
     engine.randomSeed(12345);
-    const first = [engine.random(100), engine.random(-10, 10), engine.random(100)];
+    const first = [
+      engine.random(100),
+      engine.random(-10, 10),
+      engine.random(100),
+    ];
     engine.randomSeed(12345);
-    expect([engine.random(100), engine.random(-10, 10), engine.random(100)]).toEqual(first);
+    expect([
+      engine.random(100),
+      engine.random(-10, 10),
+      engine.random(100),
+    ]).toEqual(first);
     expect(first[0]).toBeGreaterThanOrEqual(0);
     expect(first[0]).toBeLessThan(100);
     expect(first[1]).toBeGreaterThanOrEqual(-10);
@@ -177,7 +191,11 @@ describe("SimulationEngine", () => {
     const engine = new SimulationEngine(hardwareConfig);
     engine.setAccelerometer({ x: 1.7, y: -2.2, z: 0.4 }, true, 10_000);
     expect(engine.accelerationAvailable()).toBe(1);
-    expect(engine.readAcceleration(10_500)).toEqual({ x: 1.7, y: -2.2, z: 0.4 });
+    expect(engine.readAcceleration(10_500)).toEqual({
+      x: 1.7,
+      y: -2.2,
+      z: 0.4,
+    });
     expect(engine.accelerationAvailable()).toBe(0);
     expect(engine.readAcceleration(11_001)).toEqual({ x: 0, y: 0, z: 1 });
   });

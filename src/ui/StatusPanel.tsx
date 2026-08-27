@@ -17,8 +17,18 @@ const labels: Record<RunStatus, string> = {
   error: "Needs attention",
 };
 
-export function StatusPanel({ status, message, line, virtualTimeMs }: StatusPanelProps) {
-  const Icon = status === "error" ? AlertTriangle : status === "running" ? CheckCircle2 : Terminal;
+export function StatusPanel({
+  status,
+  message,
+  line,
+  virtualTimeMs,
+}: StatusPanelProps) {
+  const Icon =
+    status === "error"
+      ? AlertTriangle
+      : status === "running"
+        ? CheckCircle2
+        : Terminal;
   const diagnostic = line ? `Line ${line}:\n${message}` : message;
 
   return (

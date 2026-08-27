@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { hardwareConfig, TEST_LED_PIN } from "../src/config/defaultHardware";
-import { createArduinoInclude, createImuInclude } from "../src/emulator/arduinoApi";
+import {
+  createArduinoInclude,
+  createImuInclude,
+} from "../src/emulator/arduinoApi";
 import { runRestrictedJscpp } from "../src/emulator/jscppRuntime";
-import { SimulationEngine, type SimulationEvent } from "../src/emulator/simulationState";
+import {
+  SimulationEngine,
+  type SimulationEvent,
+} from "../src/emulator/simulationState";
 
 describe("JSCPP Arduino compatibility layer", () => {
   it("supports Arduino-style Serial debug output", () => {
@@ -25,9 +31,13 @@ int main() {
 
     const result = runRestrictedJscpp(
       source,
-      createArduinoInclude(engine, () => undefined, (text) => {
-        output += text;
-      }),
+      createArduinoInclude(
+        engine,
+        () => undefined,
+        (text) => {
+          output += text;
+        },
+      ),
     );
 
     expect(result).toBe(0);
@@ -55,9 +65,13 @@ int main() {
 
     const result = runRestrictedJscpp(
       source,
-      createArduinoInclude(engine, () => undefined, (text) => {
-        output += text;
-      }),
+      createArduinoInclude(
+        engine,
+        () => undefined,
+        (text) => {
+          output += text;
+        },
+      ),
     );
 
     expect(result).toBe(0);
@@ -93,10 +107,12 @@ int main() {
   return 0;
 }`;
 
-    expect(runRestrictedJscpp(
-      source,
-      createArduinoInclude(engine, () => undefined),
-    )).toBe(0);
+    expect(
+      runRestrictedJscpp(
+        source,
+        createArduinoInclude(engine, () => undefined),
+      ),
+    ).toBe(0);
   });
 
   it("supports Arduino String variables", () => {
@@ -129,15 +145,19 @@ int main() {
 
     const result = runRestrictedJscpp(
       source,
-      createArduinoInclude(engine, () => undefined, (text) => {
-        output += text;
-      }),
+      createArduinoInclude(
+        engine,
+        () => undefined,
+        (text) => {
+          output += text;
+        },
+      ),
     );
 
     expect(result).toBe(0);
     expect(output).toBe(
       "Anchors Aweigh\nAnchors!2026\nReady\nReady\n42\n" +
-      "Passed as an argument\n14\nA\n1\n",
+        "Passed as an argument\n14\nA\n1\n",
     );
   });
 
@@ -160,9 +180,13 @@ int main() {
 
     const result = runRestrictedJscpp(
       source,
-      createArduinoInclude(engine, () => undefined, (text) => {
-        output += text;
-      }),
+      createArduinoInclude(
+        engine,
+        () => undefined,
+        (text) => {
+          output += text;
+        },
+      ),
     );
 
     expect(result).toBe(0);
@@ -189,8 +213,7 @@ int main() {
 
   it("runs a blink sequence through the fake Arduino API", () => {
     const transitions: Array<{ event: SimulationEvent; time: number }> = [];
-    let engine!: SimulationEngine;
-    engine = new SimulationEngine(hardwareConfig, undefined, (event) => {
+    const engine = new SimulationEngine(hardwareConfig, undefined, (event) => {
       transitions.push({ event, time: engine.millis() });
     });
 
@@ -211,7 +234,9 @@ int main() {
     );
 
     expect(result).toBe(0);
-    const pinTransitions = transitions.filter((item) => item.event.type === "pin-change");
+    const pinTransitions = transitions.filter(
+      (item) => item.event.type === "pin-change",
+    );
     expect(pinTransitions).toEqual([
       { event: { type: "pin-change", pin: "D4", value: 1 }, time: 0 },
       { event: { type: "pin-change", pin: "D4", value: 0 }, time: 1000 },
@@ -228,10 +253,12 @@ int main() {
   return micros() == 123000 ? 0 : 1;
 }`;
 
-    expect(runRestrictedJscpp(
-      source,
-      createArduinoInclude(engine, () => undefined),
-    )).toBe(0);
+    expect(
+      runRestrictedJscpp(
+        source,
+        createArduinoInclude(engine, () => undefined),
+      ),
+    ).toBe(0);
   });
 
   it("returns live A7 and D2 values to interpreted code", () => {

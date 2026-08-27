@@ -17,16 +17,20 @@ describe("TURN browser configuration", () => {
       },
     ]);
 
-    expect(result).toEqual([{
-      urls: ["turns:turn.cloudflare.com:443?transport=tcp"],
-      username: "temporary-user",
-      credential: "temporary-password",
-    }]);
+    expect(result).toEqual([
+      {
+        urls: ["turns:turn.cloudflare.com:443?transport=tcp"],
+        username: "temporary-user",
+        credential: "temporary-password",
+      },
+    ]);
   });
 
   it("does not accept an unrelated secure TURN hostname", () => {
-    expect(selectFirewallFriendlyIceServers([
-      { urls: "turns:example.com:443?transport=tcp" },
-    ])).toEqual([]);
+    expect(
+      selectFirewallFriendlyIceServers([
+        { urls: "turns:example.com:443?transport=tcp" },
+      ]),
+    ).toEqual([]);
   });
 });

@@ -11,7 +11,10 @@ import type {
 import { normalizePin } from "../emulator/simulationState";
 
 export const HARDWARE_STORAGE_KEY = "arduino-emulator.hardware.v1";
-export const DIGITAL_DEVICE_PINS = Array.from({ length: 13 }, (_, index) => index);
+export const DIGITAL_DEVICE_PINS = Array.from(
+  { length: 13 },
+  (_, index) => index,
+);
 export const ANALOG_DEVICE_PINS = Array.from(
   { length: 8 },
   (_, index) => `A${index}` as const,
@@ -34,7 +37,10 @@ export function defaultHardware(): HardwareConfig {
 }
 
 export function isDefaultHardware(config: HardwareConfig): boolean {
-  return JSON.stringify({ ...config, name: defaultHardwareConfig.name }) === JSON.stringify(defaultHardwareConfig);
+  return (
+    JSON.stringify({ ...config, name: defaultHardwareConfig.name }) ===
+    JSON.stringify(defaultHardwareConfig)
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -42,7 +48,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function validLabel(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0 && value.trim().length <= 50;
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    value.trim().length <= 50
+  );
 }
 
 function validDigitalPin(value: unknown): value is number {
@@ -50,7 +60,10 @@ function validDigitalPin(value: unknown): value is number {
 }
 
 function validAnalogPin(value: unknown): value is `A${number}` {
-  return typeof value === "string" && ANALOG_DEVICE_PINS.includes(value as `A${number}`);
+  return (
+    typeof value === "string" &&
+    ANALOG_DEVICE_PINS.includes(value as `A${number}`)
+  );
 }
 
 function validFiniteNumber(value: unknown): value is number {
@@ -58,11 +71,20 @@ function validFiniteNumber(value: unknown): value is number {
 }
 
 function validUnits(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0 && value.trim().length <= 20;
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    value.trim().length <= 20
+  );
 }
 
 function validateComponent(value: unknown): ComponentConfig | null {
-  if (!isRecord(value) || typeof value.id !== "string" || value.id.length === 0 || !validLabel(value.label)) {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    value.id.length === 0 ||
+    !validLabel(value.label)
+  ) {
     return null;
   }
 
@@ -85,7 +107,12 @@ function validateComponent(value: unknown): ComponentConfig | null {
   }
 
   if (value.type === "potentiometer") {
-    const origin = value.origin === "custom" ? "custom" : value.origin === "default" ? "default" : null;
+    const origin =
+      value.origin === "custom"
+        ? "custom"
+        : value.origin === "default"
+          ? "default"
+          : null;
     if (!origin || !validAnalogPin(value.pin)) return null;
     if (origin === "default" && value.id !== "potentiometer") return null;
     if (origin === "custom" && REQUIRED_DEFAULT_IDS.has(value.id)) return null;
@@ -110,7 +137,8 @@ function validateComponent(value: unknown): ComponentConfig | null {
       !validFiniteNumber(value.rangeEnd) ||
       value.rangeStart >= value.rangeEnd ||
       !validUnits(value.units)
-    ) return null;
+    )
+      return null;
     const midpoint = value.rangeStart + (value.rangeEnd - value.rangeStart) / 2;
     const defaultValue = validFiniteNumber(value.defaultValue)
       ? Math.max(value.rangeStart, Math.min(value.rangeEnd, value.defaultValue))
@@ -129,7 +157,12 @@ function validateComponent(value: unknown): ComponentConfig | null {
   }
 
   if (value.type === "toggle-switch") {
-    const origin = value.origin === "custom" ? "custom" : value.origin === "default" ? "default" : null;
+    const origin =
+      value.origin === "custom"
+        ? "custom"
+        : value.origin === "default"
+          ? "default"
+          : null;
     if (!origin || !validDigitalPin(value.pin)) return null;
     if (origin === "default" && value.id !== "toggleSwitch") return null;
     if (origin === "custom" && REQUIRED_DEFAULT_IDS.has(value.id)) return null;
@@ -167,8 +200,17 @@ export function parseHardwareConfig(value: unknown): HardwareConfig | null {
   if ([...REQUIRED_DEFAULT_IDS].some((id) => !ids.includes(id))) return null;
 
   const pinComponents = typedComponents.filter(
-    (component): component is LedComponentConfig | PotentiometerComponentConfig | SensorComponentConfig | ToggleSwitchComponentConfig =>
-      component.type === "led" || component.type === "potentiometer" || component.type === "sensor" || component.type === "toggle-switch",
+    (
+      component,
+    ): component is
+      | LedComponentConfig
+      | PotentiometerComponentConfig
+      | SensorComponentConfig
+      | ToggleSwitchComponentConfig =>
+      component.type === "led" ||
+      component.type === "potentiometer" ||
+      component.type === "sensor" ||
+      component.type === "toggle-switch",
   );
   const pins = pinComponents.map((component) => normalizePin(component.pin));
   if (new Set(pins).size !== pins.length) return null;
@@ -187,7 +229,9 @@ export function parseHardwareConfig(value: unknown): HardwareConfig | null {
   };
 }
 
-export function loadHardwareConfig(storage: Pick<Storage, "getItem">): HardwareConfig {
+export function loadHardwareConfig(
+  storage: Pick<Storage, "getItem">,
+): HardwareConfig {
   try {
     const saved = storage.getItem(HARDWARE_STORAGE_KEY);
     if (!saved) return defaultHardware();

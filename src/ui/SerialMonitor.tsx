@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ChevronDown, Eraser, TerminalSquare } from "lucide-react";
+import { ChevronDown, Copy, Eraser, TerminalSquare } from "lucide-react";
 
 interface SerialMonitorProps {
   output: string;
@@ -31,10 +31,8 @@ export function SerialMonitor({
   const [expanded, setExpanded] = useState(false);
   const isExpanded = expanded || forceExpanded;
 
-  const latestLine = output
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .at(-1) ?? "No serial output";
+  const latestLine =
+    output.split(/\r?\n/).filter(Boolean).at(-1) ?? "No serial output";
 
   useEffect(() => {
     const element = outputRef.current;
@@ -48,8 +46,16 @@ export function SerialMonitor({
     setInput("");
   };
 
+  const copyOutput = () => {
+    if (!output) return;
+    void navigator.clipboard.writeText(output);
+  };
+
   return (
-    <section className={`serial-monitor${isExpanded ? " serial-expanded" : ""}`} aria-label="Serial Monitor">
+    <section
+      className={`serial-monitor${isExpanded ? " serial-expanded" : ""}`}
+      aria-label="Serial Monitor"
+    >
       <div className="serial-heading">
         <button
           className="serial-toggle"
@@ -60,17 +66,34 @@ export function SerialMonitor({
           <TerminalSquare size={15} aria-hidden="true" />
           <strong>Serial Monitor</strong>
           {!isExpanded && <span className="serial-latest">{latestLine}</span>}
-          <ChevronDown className="serial-chevron" size={16} aria-hidden="true" />
+          <ChevronDown
+            className="serial-chevron"
+            size={16}
+            aria-hidden="true"
+          />
         </button>
-        <button className="serial-clear" type="button" onClick={onClear} disabled={!output}>
-          <Eraser size={14} aria-hidden="true" />
-          Clear
-        </button>
+        <div className="serial-actions">
+          <button type="button" onClick={copyOutput} disabled={!output}>
+            <Copy size={14} aria-hidden="true" />
+            Copy
+          </button>
+          <button
+            className="serial-clear"
+            type="button"
+            onClick={onClear}
+            disabled={!output}
+          >
+            <Eraser size={14} aria-hidden="true" />
+            Clear
+          </button>
+        </div>
       </div>
       {isExpanded && (
         <div className="serial-body">
           <pre ref={outputRef} aria-live="polite">
-            {output || <span>Output from Serial.print() will appear here.</span>}
+            {output || (
+              <span>Output from Serial.print() will appear here.</span>
+            )}
           </pre>
           <form className="serial-input" onSubmit={submit}>
             <input
@@ -84,7 +107,9 @@ export function SerialMonitor({
             <select
               aria-label="Line ending"
               value={lineEnding}
-              onChange={(event) => setLineEnding(event.target.value as LineEnding)}
+              onChange={(event) =>
+                setLineEnding(event.target.value as LineEnding)
+              }
               disabled={!inputEnabled}
             >
               <option value="none">No line ending</option>

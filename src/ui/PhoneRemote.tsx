@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Activity, CheckCircle2, LoaderCircle, Smartphone } from "lucide-react";
 import type { AccelerometerReading } from "../emulator/workerProtocol";
-import { phoneMotionToBoardAcceleration, requestMotionPermission } from "../phone/motion";
+import {
+  phoneMotionToBoardAcceleration,
+  requestMotionPermission,
+} from "../phone/motion";
 import { joinTurnPairing, submitPairingAnswer } from "../phone/turnBroker";
 import { PhoneAccelerometerPeer, type PeerStatus } from "../phone/webrtc";
 
@@ -17,13 +20,16 @@ export function PhoneRemote({ sessionId, pairingGrant }: PhoneRemoteProps) {
   const [pairingSubmitted, setPairingSubmitted] = useState(false);
   const [reading, setReading] = useState(NEUTRAL);
   const [error, setError] = useState("");
-  const [landscape, setLandscape] = useState(window.innerWidth > window.innerHeight);
+  const [landscape, setLandscape] = useState(
+    window.innerWidth > window.innerHeight,
+  );
   const [hasReading, setHasReading] = useState(false);
   const peerRef = useRef<PhoneAccelerometerPeer | null>(null);
   const lastSentAtRef = useRef(0);
 
   useEffect(() => {
-    const handleResize = () => setLandscape(window.innerWidth > window.innerHeight);
+    const handleResize = () =>
+      setLandscape(window.innerWidth > window.innerHeight);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -35,7 +41,9 @@ export function PhoneRemote({ sessionId, pairingGrant }: PhoneRemoteProps) {
     const handleMotion = (event: DeviceMotionEvent) => {
       const now = performance.now();
       if (now - lastSentAtRef.current < 1000 / 30) return;
-      const next = phoneMotionToBoardAcceleration(event.accelerationIncludingGravity);
+      const next = phoneMotionToBoardAcceleration(
+        event.accelerationIncludingGravity,
+      );
       if (!next) return;
       lastSentAtRef.current = now;
       setHasReading(true);
@@ -49,16 +57,22 @@ export function PhoneRemote({ sessionId, pairingGrant }: PhoneRemoteProps) {
   const enable = async () => {
     setError("");
     if (!("RTCPeerConnection" in window) || !("DeviceMotionEvent" in window)) {
-      setError("This browser cannot provide the WebRTC motion-sensor features required by the emulator.");
+      setError(
+        "This browser cannot provide the WebRTC motion-sensor features required by the emulator.",
+      );
       return;
     }
     try {
       if (!pairingGrant) {
-        setError("This pairing code is from an older version of the emulator. Start pairing again on the laptop.");
+        setError(
+          "This pairing code is from an older version of the emulator. Start pairing again on the laptop.",
+        );
         return;
       }
       if (!(await requestMotionPermission())) {
-        setError("Motion access was denied. Allow Motion & Orientation access and try again.");
+        setError(
+          "Motion access was denied. Allow Motion & Orientation access and try again.",
+        );
         return;
       }
       setStatus("gathering");
@@ -71,7 +85,11 @@ export function PhoneRemote({ sessionId, pairingGrant }: PhoneRemoteProps) {
       history.replaceState(null, "", location.href.split("#")[0]);
     } catch (reason) {
       setStatus("failed");
-      setError(reason instanceof Error ? reason.message : "Could not create the phone connection.");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not create the phone connection.",
+      );
     }
   };
 
@@ -80,41 +98,93 @@ export function PhoneRemote({ sessionId, pairingGrant }: PhoneRemoteProps) {
   return (
     <main className="phone-remote">
       <header className="phone-header">
-        <span><Activity size={20} aria-hidden="true" /></span>
-        <div><small>Arduino Emulator</small><h1>Motion Remote</h1></div>
+        <span>
+          <Activity size={20} aria-hidden="true" />
+        </span>
+        <div>
+          <small>Arduino Emulator</small>
+          <h1>Motion Remote</h1>
+        </div>
       </header>
       <section className="phone-card">
-        {landscape && <p className="phone-warning">Rotate your phone to portrait before collecting data.</p>}
+        {landscape && (
+          <p className="phone-warning">
+            Rotate your phone to portrait before collecting data.
+          </p>
+        )}
         {!pairingSubmitted ? (
           <>
             <Smartphone size={54} strokeWidth={1.4} aria-hidden="true" />
             <h2>Use this phone as the Arduino</h2>
-            <p>Hold it in portrait with the top of the phone representing the board’s USB end. Keep this page visible while the sketch runs.</p>
+            <p>
+              Hold it in portrait with the top of the phone representing the
+              board’s USB end. Keep this page visible while the sketch runs.
+            </p>
             {error && <p className="phone-error">{error}</p>}
-            <button className="phone-primary" type="button" onClick={() => void enable()} disabled={status === "gathering"}>
+            <button
+              className="phone-primary"
+              type="button"
+              onClick={() => void enable()}
+              disabled={status === "gathering"}
+            >
               {status === "gathering" ? "Preparing…" : "Enable motion sensors"}
             </button>
           </>
         ) : status !== "connected" ? (
           <>
-            <LoaderCircle className="phone-connecting-icon" size={44} aria-hidden="true" />
+            <LoaderCircle
+              className="phone-connecting-icon"
+              size={44}
+              aria-hidden="true"
+            />
             <h2>Connecting to laptop</h2>
-            <p>Your pairing answer was sent automatically. Keep this page open while the laptop connects.</p>
-            <p className="phone-status">{status === "failed" ? "The secure connection failed. Start pairing again on the laptop." : "Waiting for laptop…"}</p>
+            <p>
+              Your pairing answer was sent automatically. Keep this page open
+              while the laptop connects.
+            </p>
+            <p className="phone-status">
+              {status === "failed"
+                ? "The secure connection failed. Start pairing again on the laptop."
+                : "Waiting for laptop…"}
+            </p>
           </>
         ) : (
           <>
-            <CheckCircle2 className="phone-connected-icon" size={44} aria-hidden="true" />
+            <CheckCircle2
+              className="phone-connected-icon"
+              size={44}
+              aria-hidden="true"
+            />
             <h2>Connected</h2>
             <p>Move and tilt the phone as if it were the Arduino board.</p>
             <div className="phone-readings" aria-live="polite">
-              <span><b>X</b><strong>{reading.x.toFixed(2)} g</strong></span>
-              <span><b>Y</b><strong>{reading.y.toFixed(2)} g</strong></span>
-              <span><b>Z</b><strong>{reading.z.toFixed(2)} g</strong></span>
-              <span><b>|a|</b><strong>{magnitude.toFixed(2)} g</strong></span>
+              <span>
+                <b>X</b>
+                <strong>{reading.x.toFixed(2)} g</strong>
+              </span>
+              <span>
+                <b>Y</b>
+                <strong>{reading.y.toFixed(2)} g</strong>
+              </span>
+              <span>
+                <b>Z</b>
+                <strong>{reading.z.toFixed(2)} g</strong>
+              </span>
+              <span>
+                <b>|a|</b>
+                <strong>{magnitude.toFixed(2)} g</strong>
+              </span>
             </div>
-            {!hasReading && <p className="phone-warning">Waiting for motion readings. Check your browser’s sensor permission.</p>}
-            <p className="phone-footnote">Do not lock the phone or switch apps; browsers pause sensor events when this page is hidden.</p>
+            {!hasReading && (
+              <p className="phone-warning">
+                Waiting for motion readings. Check your browser’s sensor
+                permission.
+              </p>
+            )}
+            <p className="phone-footnote">
+              Do not lock the phone or switch apps; browsers pause sensor events
+              when this page is hidden.
+            </p>
           </>
         )}
       </section>

@@ -42,7 +42,9 @@ export type SimulationEvent =
   | { type: "pwm-change"; pin: NormalizedPin; value: number }
   | { type: "time-change"; virtualTimeMs: number };
 
-export function normalizePin(pin: PinReference | number | string): NormalizedPin {
+export function normalizePin(
+  pin: PinReference | number | string,
+): NormalizedPin {
   if (typeof pin === "number") {
     if (!Number.isInteger(pin) || pin < 0) {
       throw new Error(`Invalid pin: ${pin}`);
@@ -60,7 +62,9 @@ export function normalizePin(pin: PinReference | number | string): NormalizedPin
   throw new Error(`Invalid pin: ${pin}`);
 }
 
-export function createInitialSimulationState(config: HardwareConfig): SimulationState {
+export function createInitialSimulationState(
+  config: HardwareConfig,
+): SimulationState {
   const components: Record<string, number | boolean> = {};
   for (const component of config.components) {
     if (component.type === "potentiometer") {
@@ -154,42 +158,60 @@ export class SimulationEngine {
     const id = normalizePin(pin);
     const toggle = this.config.components.find(
       (component): component is ToggleSwitchComponentConfig =>
-        component.type === "toggle-switch" && normalizePin(component.pin) === id,
+        component.type === "toggle-switch" &&
+        normalizePin(component.pin) === id,
     );
     if (toggle) {
-      return this.state.inputs.components[toggle.id] ? toggle.onValue : toggle.offValue;
+      return this.state.inputs.components[toggle.id]
+        ? toggle.onValue
+        : toggle.offValue;
     }
 
     const pinState = this.pin(pin);
     if (pinState.mode === INPUT_PULLUP) return HIGH;
-    if (pinState.mode === OUTPUT) return pinState.outputValue === LOW ? LOW : HIGH;
+    if (pinState.mode === OUTPUT)
+      return pinState.outputValue === LOW ? LOW : HIGH;
     return LOW;
   }
 
   analogRead(pin: PinReference | number | string): number {
     const id = normalizePin(pin);
     const analogInput = this.config.components.find(
-      (component): component is PotentiometerComponentConfig | SensorComponentConfig =>
+      (
+        component,
+      ): component is PotentiometerComponentConfig | SensorComponentConfig =>
         (component.type === "potentiometer" || component.type === "sensor") &&
         normalizePin(component.pin) === id,
     );
     if (!analogInput) return 0;
     const value = Number(this.state.inputs.components[analogInput.id]);
     if (analogInput.type === "sensor") {
-      const physicalValue = Number.isFinite(value) ? value : analogInput.defaultValue;
-      const clamped = Math.max(analogInput.rangeStart, Math.min(analogInput.rangeEnd, physicalValue));
+      const physicalValue = Number.isFinite(value)
+        ? value
+        : analogInput.defaultValue;
+      const clamped = Math.max(
+        analogInput.rangeStart,
+        Math.min(analogInput.rangeEnd, physicalValue),
+      );
       return Math.round(
-        ((clamped - analogInput.rangeStart) / (analogInput.rangeEnd - analogInput.rangeStart)) * 1023,
+        ((clamped - analogInput.rangeStart) /
+          (analogInput.rangeEnd - analogInput.rangeStart)) *
+          1023,
       );
     }
     return Math.max(
       analogInput.min,
-      Math.min(analogInput.max, Math.round(Number.isFinite(value) ? value : analogInput.defaultValue)),
+      Math.min(
+        analogInput.max,
+        Math.round(Number.isFinite(value) ? value : analogInput.defaultValue),
+      ),
     );
   }
 
   setInput(componentId: string, value: number | boolean): void {
-    const component = this.config.components.find((item) => item.id === componentId);
+    const component = this.config.components.find(
+      (item) => item.id === componentId,
+    );
     if (component?.type === "potentiometer") {
       this.state.inputs.components[componentId] = Math.max(
         component.min,
@@ -199,7 +221,10 @@ export class SimulationEngine {
       const numeric = Number(value);
       this.state.inputs.components[componentId] = Math.max(
         component.rangeStart,
-        Math.min(component.rangeEnd, Number.isFinite(numeric) ? numeric : component.defaultValue),
+        Math.min(
+          component.rangeEnd,
+          Number.isFinite(numeric) ? numeric : component.defaultValue,
+        ),
       );
     } else if (component?.type === "toggle-switch") {
       this.state.inputs.components[componentId] = Boolean(value);
@@ -251,7 +276,9 @@ export class SimulationEngine {
   }
 
   serialPeek(): number {
-    return this.serialAvailable() > 0 ? this.serialInput[this.serialReadIndex] : -1;
+    return this.serialAvailable() > 0
+      ? this.serialInput[this.serialReadIndex]
+      : -1;
   }
 
   serialRead(): number {

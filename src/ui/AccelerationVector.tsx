@@ -66,7 +66,11 @@ export function AccelerationVector({ reading }: AccelerationVectorProps) {
 
     const axes = new THREE.AxesHelper(4.7);
     scene.add(axes);
-    const makeAxisLabel = (text: string, color: string, position: THREE.Vector3) => {
+    const makeAxisLabel = (
+      text: string,
+      color: string,
+      position: THREE.Vector3,
+    ) => {
       const canvas = document.createElement("canvas");
       canvas.width = 96;
       canvas.height = 96;
@@ -83,7 +87,10 @@ export function AccelerationVector({ reading }: AccelerationVectorProps) {
         context.fillText(text, 48, 50);
       }
       const texture = new THREE.CanvasTexture(canvas);
-      const material = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+      const material = new THREE.SpriteMaterial({
+        map: texture,
+        depthTest: false,
+      });
       const sprite = new THREE.Sprite(material);
       sprite.position.copy(position);
       sprite.scale.set(0.65, 0.65, 0.65);
@@ -120,14 +127,37 @@ export function AccelerationVector({ reading }: AccelerationVectorProps) {
       return mesh;
     };
     const thresholdPlanes = [
-      makeThresholdPlane(0xef5d67, new THREE.Vector3(1.5, 0, 0), new THREE.Euler(0, Math.PI / 2, 0)),
-      makeThresholdPlane(0xef5d67, new THREE.Vector3(-1.5, 0, 0), new THREE.Euler(0, Math.PI / 2, 0)),
-      makeThresholdPlane(0x28bd7f, new THREE.Vector3(0, 1.5, 0), new THREE.Euler(Math.PI / 2, 0, 0)),
-      makeThresholdPlane(0x28bd7f, new THREE.Vector3(0, -1.5, 0), new THREE.Euler(Math.PI / 2, 0, 0)),
+      makeThresholdPlane(
+        0xef5d67,
+        new THREE.Vector3(1.5, 0, 0),
+        new THREE.Euler(0, Math.PI / 2, 0),
+      ),
+      makeThresholdPlane(
+        0xef5d67,
+        new THREE.Vector3(-1.5, 0, 0),
+        new THREE.Euler(0, Math.PI / 2, 0),
+      ),
+      makeThresholdPlane(
+        0x28bd7f,
+        new THREE.Vector3(0, 1.5, 0),
+        new THREE.Euler(Math.PI / 2, 0, 0),
+      ),
+      makeThresholdPlane(
+        0x28bd7f,
+        new THREE.Vector3(0, -1.5, 0),
+        new THREE.Euler(Math.PI / 2, 0, 0),
+      ),
     ];
 
     const direction = new THREE.Vector3(0, 0, 1);
-    const arrow = new THREE.ArrowHelper(direction, new THREE.Vector3(), 1, 0xf1ad3d, 0.28, 0.16);
+    const arrow = new THREE.ArrowHelper(
+      direction,
+      new THREE.Vector3(),
+      1,
+      0xf1ad3d,
+      0.28,
+      0.16,
+    );
     scene.add(arrow);
 
     const render = () => renderer.render(scene, camera);
@@ -138,7 +168,11 @@ export function AccelerationVector({ reading }: AccelerationVectorProps) {
       if (magnitude > 0.0001) {
         arrow.visible = true;
         arrow.setDirection(direction.normalize());
-        arrow.setLength(magnitude, Math.min(0.35, magnitude * 0.3), Math.min(0.2, magnitude * 0.18));
+        arrow.setLength(
+          magnitude,
+          Math.min(0.35, magnitude * 0.3),
+          Math.min(0.2, magnitude * 0.18),
+        );
       } else {
         arrow.visible = false;
       }
@@ -195,9 +229,15 @@ export function AccelerationVector({ reading }: AccelerationVectorProps) {
   return (
     <div className="vector-visualization">
       <div className="vector-canvas" ref={hostRef}>
-        <span className="webgl-fallback">3D view unavailable; use the numeric readings below.</span>
+        <span className="webgl-fallback">
+          3D view unavailable; use the numeric readings below.
+        </span>
       </div>
-      <button className="vector-reset" type="button" onClick={() => resetRef.current?.()}>
+      <button
+        className="vector-reset"
+        type="button"
+        onClick={() => resetRef.current?.()}
+      >
         Reset view
       </button>
     </div>

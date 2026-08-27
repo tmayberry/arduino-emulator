@@ -19,6 +19,8 @@ describe("normalizeDiagnosticMessage", () => {
   });
 
   it("normalizes Windows-style line endings", () => {
-    expect(normalizeDiagnosticMessage("first\r\nsecond\rthird")).toBe("first\nsecond\nthird");
+    expect(normalizeDiagnosticMessage("first\r\nsecond\rthird")).toBe(
+      "first\nsecond\nthird",
+    );
   });
 });
